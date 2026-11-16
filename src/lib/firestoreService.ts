@@ -33,32 +33,76 @@ import {
   truncate,
 } from '../types/hub';
 
+const WRITE_QUOTA_PAUSE_KEY = 'yilai_firestore_write_quota_day_v1';
+
+function getTodayQuotaKey(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function isWriteQuotaPausedToday(): boolean {
+  try {
+    return window.localStorage.getItem(WRITE_QUOTA_PAUSE_KEY) === getTodayQuotaKey();
+  } catch {
+    return false;
+  }
+}
+
+export function markWriteQuotaPausedToday(): void {
+  try {
+    window.localStorage.setItem(WRITE_QUOTA_PAUSE_KEY, getTodayQuotaKey());
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function clearWriteQuotaPause(): void {
+  try {
+    window.localStorage.removeItem(WRITE_QUOTA_PAUSE_KEY);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function isQuotaExceededError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error ?? '');
+  return (
+    msg.includes('resource-exhausted') ||
+    msg.includes('Quota limit exceeded') ||
+    msg.includes('Quota exceeded')
+  );
+}
+
 export async function ensureUserProfile(user: User): Promise<UserProfile> {
   const path = `users/${user.uid}`;
   const ref = doc(db, 'users', user.uid);
+  const fallbackProfile: UserProfile = {
+    uid: user.uid,
+    email: truncate(user.email || 'seller@yilaihub.com', 200),
+    displayName: truncate(user.displayName || 'Yi Lai Sales', 100),
+    companyName: 'Yi Lai Dispensing Packaging',
+    defaultCurrency: 'USD' as CurrencyCode,
+  };
+
   try {
     const snap = await getDoc(ref);
     if (snap.exists()) {
       return snap.data() as UserProfile;
     }
+    if (isWriteQuotaPausedToday()) {
+      return fallbackProfile;
+    }
     const profilePayload = {
-      uid: user.uid,
-      email: truncate(user.email || 'seller@yilaihub.com', 200),
-      displayName: truncate(user.displayName || 'Yi Lai Sales', 100),
-      companyName: 'Yi Lai Dispensing Packaging',
-      defaultCurrency: 'USD' as CurrencyCode,
+      ...fallbackProfile,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
     await setDoc(ref, profilePayload);
-    return {
-      uid: profilePayload.uid,
-      email: profilePayload.email,
-      displayName: profilePayload.displayName,
-      companyName: profilePayload.companyName,
-      defaultCurrency: profilePayload.defaultCurrency,
-    };
+    clearWriteQuotaPause();
+    return fallbackProfile;
   } catch (error) {
+    if (isQuotaExceededError(error)) {
+      markWriteQuotaPausedToday();
+    }
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
@@ -406,6 +450,8 @@ export async function createOrderWithItems(
       productName: truncate(item.productName, 140),
       category: item.category,
       neckSize: truncate(item.neckSize || '', 32),
+      colorFinish: truncate(item.colorFinish || '', 64),
+      dipTube: truncate(item.dipTube || '', 64),
       quantity: qty,
       unitFactoryPrice: fPrice,
       unitSellingPrice: sPrice,
@@ -514,6 +560,8 @@ export async function updateOrderWithItems(
         productName: truncate(item.productName, 140),
         category: item.category,
         neckSize: truncate(item.neckSize || '', 32),
+        colorFinish: truncate(item.colorFinish || '', 64),
+        dipTube: truncate(item.dipTube || '', 64),
         quantity: qty,
         unitFactoryPrice: fPrice,
         unitSellingPrice: sPrice,
@@ -606,6 +654,27 @@ export async function updateOrderFields(
   }
   try {
     await updateDoc(doc(db, 'orders', orderId), payload);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function updateOrderItemSpecs(
+  orderId: string,
+  itemId: string,
+  specs: {
+    neckSize: string;
+    colorFinish: string;
+    dipTube: string;
+  }
+): Promise<void> {
+  const path = `orders/${orderId}/items/${itemId}`;
+  try {
+    await updateDoc(doc(db, 'orders', orderId, 'items', itemId), {
+      neckSize: truncate(specs.neckSize || '', 32),
+      colorFinish: truncate(specs.colorFinish || '', 64),
+      dipTube: truncate(specs.dipTube || '', 64),
+    });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
   }

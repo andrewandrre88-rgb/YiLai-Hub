@@ -41,7 +41,7 @@ import {
   getProductPricing,
   getWhatsappUrl,
 } from '../types/hub';
-import { fetchOrderItems } from '../lib/firestoreService';
+import { fetchOrderItems, updateOrderItemSpecs } from '../lib/firestoreService';
 import { DualPrice } from './DualPrice';
 
 interface OrdersViewProps {
@@ -140,6 +140,8 @@ export function OrdersView({
           productName: item.productName,
           category: item.category,
           neckSize: item.neckSize,
+          colorFinish: item.colorFinish || '',
+          dipTube: item.dipTube || '',
           quantity: item.quantity,
           unitFactoryPrice: Number(fin.unitFactoryRmb.toFixed(4)),
           unitSellingPrice: Number((fin.unitSellingUsd ?? 0).toFixed(4)),
@@ -156,6 +158,8 @@ export function OrdersView({
         productName: fallbackProd.name,
         category: fallbackProd.category,
         neckSize: fallbackProd.neckSize,
+        colorFinish: fallbackProd.colorFinish || '',
+        dipTube: '',
         quantity: fallbackProd.moq || 5000,
         unitFactoryPrice: Number(pricing.factoryRmb.toFixed(4)),
         unitSellingPrice: Number((pricing.sellingUsd ?? 0).toFixed(4)),
@@ -209,7 +213,7 @@ export function OrdersView({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg overflow-x-auto">
           {STATUS_TABS.map((tab) => (
             <button
@@ -227,7 +231,7 @@ export function OrdersView({
           ))}
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
           <div className="relative flex-1 sm:w-64">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -242,7 +246,7 @@ export function OrdersView({
           <button
             type="button"
             onClick={onOpenNewOrder}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>New Order</span>
@@ -299,7 +303,164 @@ export function OrdersView({
         </div>
       ) : (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="md:hidden divide-y divide-slate-100">
+            {filtered.map((order) => {
+              const statusMeta = ORDER_STATUS_META[order.status];
+              const payMeta = PAYMENT_STATUS_META[order.paymentStatus];
+              const fin = getOrderFinancials(order, usdToRmbRate);
+              const profitPositive = (fin.profitUsd ?? 0) >= 0;
+
+              return (
+                <div
+                  key={order.id}
+                  onClick={() => onSelectOrder(order)}
+                  className="p-4 space-y-2.5 text-xs hover:bg-slate-50/90 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-mono tabular-nums font-semibold text-slate-900">
+                        {order.orderNumber}
+                      </p>
+                      <p className="text-[11px] font-mono tabular-nums text-slate-500">
+                        {order.orderDate} · {formatCount(order.totalUnits)} pcs
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`text-[11px] font-medium ${payMeta.textClass}`}>
+                        {payMeta.label}
+                      </span>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium border rounded-md ${statusMeta.colorClass}`}
+                      >
+                        {statusMeta.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="font-medium text-slate-900 truncate">{order.clientName}</p>
+                    <p className="text-[11px] text-slate-500 truncate">{order.itemsSummary}</p>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 items-start">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Factory</span>
+                      <DualPrice
+                        rmbAmount={fin.costRmb}
+                        usdAmount={fin.costUsd}
+                        primaryCurrency={currency}
+                        primaryClassName="font-medium text-slate-700"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Total</span>
+                      <DualPrice
+                        rmbAmount={fin.revenueRmb}
+                        usdAmount={fin.revenueUsd}
+                        primaryCurrency={currency}
+                      />
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 block">Profit</span>
+                      <DualPrice
+                        rmbAmount={fin.profitRmb}
+                        usdAmount={fin.profitUsd}
+                        primaryCurrency={currency}
+                        align="right"
+                        primaryClassName={
+                          profitPositive
+                            ? 'font-semibold text-emerald-700'
+                            : 'font-semibold text-rose-700'
+                        }
+                        secondaryClassName="text-[11px] text-emerald-700/75"
+                      />
+                    </div>
+                  </div>
+
+                  <div
+                    className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div>
+                      {order.status === 'completed' || order.status === 'cancelled' ? (
+                        <span className="text-[11px] font-mono tabular-nums text-slate-400">
+                          Margin {fin.marginPct.toFixed(1)}%
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setMarginOrder(order)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-mono tabular-nums font-medium text-teal-800 bg-teal-50/90 hover:bg-teal-100 border border-teal-200/80 rounded cursor-pointer"
+                        >
+                          <span>{fin.marginPct.toFixed(1)}%</span>
+                          <SlidersHorizontal className="w-2.5 h-2.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {confirmDeleteId === order.id ? (
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleConfirmDeleteOrder(order.id)}
+                          disabled={deletingId === order.id}
+                          className="px-2 py-1 text-[11px] font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded cursor-pointer"
+                        >
+                          {deletingId === order.id ? 'Deleting...' : 'Confirm'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100 rounded cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => onSelectOrder(order)}
+                          title="Open order details & WhatsApp quote"
+                          className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditOrder(order)}
+                          disabled={loadingActionId === order.id}
+                          title="Edit order"
+                          className="p-1.5 text-slate-500 hover:text-teal-700 hover:bg-teal-50 rounded-md cursor-pointer disabled:opacity-50"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDuplicateOrder(order)}
+                          disabled={loadingActionId === order.id}
+                          title="Duplicate order"
+                          className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md cursor-pointer disabled:opacity-50"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(order.id)}
+                          title="Delete order"
+                          className="p-1.5 text-slate-400 hover:text-rose-700 hover:bg-rose-50 rounded-md cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold text-slate-500 tracking-wide">
@@ -642,6 +803,8 @@ function OrderFormModal({
         productName: initialProduct.name,
         category: initialProduct.category,
         neckSize: initialProduct.neckSize,
+        colorFinish: initialProduct.colorFinish || '',
+        dipTube: '',
         quantity: initialProduct.moq || 5000,
         unitFactoryPrice: Number(pricing.factoryRmb.toFixed(4)),
         unitSellingPrice: Number((pricing.sellingUsd ?? 0).toFixed(4)),
@@ -693,6 +856,8 @@ function OrderFormModal({
       productName: prod.name,
       category: prod.category,
       neckSize: prod.neckSize,
+      colorFinish: prod.colorFinish || '',
+      dipTube: '',
       quantity: prod.moq || 5000,
       unitFactoryPrice: Number(pricing.factoryRmb.toFixed(4)),
       unitSellingPrice: Number((pricing.sellingUsd ?? 0).toFixed(4)),
@@ -754,6 +919,17 @@ function OrderFormModal({
 
     setItems((prev) =>
       prev.map((row, idx) => (idx === index ? { ...row, [field]: normalizedVal } : row))
+    );
+  };
+
+  const handleUpdateItemSpec = (
+    index: number,
+    field: 'neckSize' | 'colorFinish' | 'dipTube',
+    val: string
+  ) => {
+    if (isTerminalEdit) return;
+    setItems((prev) =>
+      prev.map((row, idx) => (idx === index ? { ...row, [field]: val } : row))
     );
   };
 
@@ -850,14 +1026,14 @@ function OrderFormModal({
         : 'Create New Order';
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-3xl shadow-lg my-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-          <h2 className="text-base font-semibold text-slate-900">{modalTitle}</h2>
+    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto">
+      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-3xl shadow-lg max-h-[calc(100dvh-1.25rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden my-auto">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-slate-200 shrink-0">
+          <h2 className="text-base font-semibold text-slate-900 truncate pr-2">{modalTitle}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+            className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer shrink-0"
             aria-label="Close modal"
           >
             <X className="w-4 h-4" />
@@ -865,7 +1041,7 @@ function OrderFormModal({
         </div>
 
         {clients.length === 0 || products.length === 0 ? (
-          <div className="p-6 text-center space-y-3">
+          <div className="p-6 text-center space-y-3 overflow-y-auto">
             <p className="text-sm font-semibold text-slate-900">
               {clients.length === 0
                 ? 'Save a client before creating an order'
@@ -884,7 +1060,7 @@ function OrderFormModal({
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 flex-1 overflow-y-auto">
             {isTerminalEdit && (
               <div className="px-3.5 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-center gap-2">
                 <Lock className="w-3.5 h-3.5 shrink-0" />
@@ -1016,7 +1192,7 @@ function OrderFormModal({
               </div>
 
               <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <div className="max-h-[320px] overflow-y-auto divide-y divide-slate-200">
+                <div className="max-h-[42vh] sm:max-h-[320px] overflow-y-auto divide-y divide-slate-200">
                   {items.map((item, idx) => {
                     const factoryInputVal =
                       priceInputs[`${idx}-unitFactoryPrice`] ??
@@ -1032,7 +1208,7 @@ function OrderFormModal({
                         key={`${item.productId}-${idx}`}
                         className="p-3 bg-slate-50/50 space-y-2"
                       >
-                        <div className="flex items-center justify-between text-[11px]">
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
                           <span className="font-mono tabular-nums font-semibold text-slate-600">
                             Product #{idx + 1} · {item.neckSize}
                           </span>
@@ -1053,8 +1229,8 @@ function OrderFormModal({
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-start">
-                          <div className="sm:col-span-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-12 gap-2.5 items-start">
+                          <div className="col-span-2 sm:col-span-6">
                             <label className="block text-[11px] text-slate-500 mb-1">Product</label>
                             <select
                               value={item.productId}
@@ -1075,7 +1251,7 @@ function OrderFormModal({
                             </select>
                           </div>
 
-                          <div className="sm:col-span-2">
+                          <div className="col-span-2 sm:col-span-2">
                             <label className="block text-[11px] text-slate-500 mb-1">Qty (pcs)</label>
                             <input
                               type="number"
@@ -1090,7 +1266,7 @@ function OrderFormModal({
                             />
                           </div>
 
-                          <div className="sm:col-span-2">
+                          <div className="col-span-1 sm:col-span-2">
                             <label className="block text-[11px] text-slate-500 mb-1">
                               Factory / unit (RMB ¥)
                             </label>
@@ -1110,7 +1286,7 @@ function OrderFormModal({
                             </p>
                           </div>
 
-                          <div className="sm:col-span-2">
+                          <div className="col-span-1 sm:col-span-2">
                             <label className="block text-[11px] text-slate-500 mb-1">
                               Sell / unit (USD $)
                             </label>
@@ -1128,6 +1304,57 @@ function OrderFormModal({
                             <p className="text-[10px] font-mono tabular-nums text-slate-500 mt-0.5">
                               ≈ {formatUnitPriceValue(convertUsdToRmb(item.unitSellingPrice, orderRate), 'CNY')} / pc
                             </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                          <div>
+                            <label className="block text-[11px] text-slate-500 mb-1">
+                              Neck Size
+                            </label>
+                            <input
+                              type="text"
+                              disabled={isTerminalEdit}
+                              value={item.neckSize}
+                              onChange={(e) =>
+                                handleUpdateItemSpec(idx, 'neckSize', e.target.value)
+                              }
+                              maxLength={32}
+                              placeholder="e.g. 28/410"
+                              className="w-full px-2.5 py-1.5 text-xs font-mono bg-white border border-slate-300 rounded-md disabled:bg-slate-100 disabled:text-slate-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] text-slate-500 mb-1">
+                              Colors (Client Spec)
+                            </label>
+                            <input
+                              type="text"
+                              disabled={isTerminalEdit}
+                              value={item.colorFinish || ''}
+                              onChange={(e) =>
+                                handleUpdateItemSpec(idx, 'colorFinish', e.target.value)
+                              }
+                              maxLength={64}
+                              placeholder="e.g. Matte Black / Pantone 285C"
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-md disabled:bg-slate-100 disabled:text-slate-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] text-slate-500 mb-1">
+                              Dip Tube (Client Spec)
+                            </label>
+                            <input
+                              type="text"
+                              disabled={isTerminalEdit}
+                              value={item.dipTube || ''}
+                              onChange={(e) =>
+                                handleUpdateItemSpec(idx, 'dipTube', e.target.value)
+                              }
+                              maxLength={64}
+                              placeholder="e.g. 215mm · FBOG cut"
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-md disabled:bg-slate-100 disabled:text-slate-500"
+                            />
                           </div>
                         </div>
 
@@ -1194,7 +1421,7 @@ function OrderFormModal({
                           }
                         }}
                         aria-label="Quick add specific product"
-                        className="px-2.5 py-1.5 text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700"
+                        className="w-full sm:w-auto max-w-full px-2.5 py-1.5 text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700"
                       >
                         <option value="">+ Quick pick a product to append...</option>
                         {products.map((p) => (
@@ -1290,18 +1517,18 @@ function OrderFormModal({
               </p>
             )}
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="px-5 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg disabled:opacity-60 cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg disabled:opacity-60 cursor-pointer"
               >
                 {saving
                   ? isEdit
@@ -1365,6 +1592,12 @@ function OrderDetailDrawer({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
+  const [editingSpecItemId, setEditingSpecItemId] = useState<string | null>(null);
+  const [specNeckSize, setSpecNeckSize] = useState('');
+  const [specColorFinish, setSpecColorFinish] = useState('');
+  const [specDipTube, setSpecDipTube] = useState('');
+  const [savingSpecs, setSavingSpecs] = useState(false);
+  const [specError, setSpecError] = useState<string | null>(null);
 
   const isTerminal = order.status === 'completed' || order.status === 'cancelled';
   const fin = getOrderFinancials(order, usdToRmbRate);
@@ -1379,6 +1612,8 @@ function OrderDetailDrawer({
     setNotes(order.notes);
     setConfirmDelete(false);
     setSaveFeedback(null);
+    setEditingSpecItemId(null);
+    setSpecError(null);
   }, [order]);
 
   useEffect(() => {
@@ -1423,7 +1658,13 @@ function OrderDetailDrawer({
       ? items
           .map((i) => {
             const itemFin = getOrderItemFinancials(i, orderRate);
-            return `- ${i.productName} (${i.neckSize}): ${formatCount(
+            const specParts = [
+              i.neckSize ? `Neck: ${i.neckSize}` : '',
+              i.colorFinish ? `Color: ${i.colorFinish}` : '',
+              i.dipTube ? `Dip tube: ${i.dipTube}` : '',
+            ].filter(Boolean);
+            const specText = specParts.length > 0 ? ` (${specParts.join(' · ')})` : '';
+            return `- ${i.productName}${specText}: ${formatCount(
               i.quantity
             )} pcs @ ${formatQuoteUnit(itemFin.unitSellingUsd)} = ${formatQuoteTotal(
               itemFin.lineTotalUsd
@@ -1491,20 +1732,61 @@ function OrderDetailDrawer({
     }
   };
 
+  const startEditSpecs = (item: OrderItem) => {
+    setEditingSpecItemId(item.id);
+    setSpecNeckSize(item.neckSize || '');
+    setSpecColorFinish(item.colorFinish || '');
+    setSpecDipTube(item.dipTube || '');
+    setSpecError(null);
+  };
+
+  const handleSaveSpecs = async (item: OrderItem) => {
+    setSavingSpecs(true);
+    setSpecError(null);
+    const nextNeck = specNeckSize.trim();
+    const nextColor = specColorFinish.trim();
+    const nextDipTube = specDipTube.trim();
+    try {
+      await updateOrderItemSpecs(order.id, item.id, {
+        neckSize: nextNeck,
+        colorFinish: nextColor,
+        dipTube: nextDipTube,
+      });
+      setItems((prev) =>
+        prev.map((row) =>
+          row.id === item.id
+            ? {
+                ...row,
+                neckSize: nextNeck,
+                colorFinish: nextColor,
+                dipTube: nextDipTube,
+              }
+            : row
+        )
+      );
+      setEditingSpecItemId(null);
+      setSaveFeedback('Client product specs saved');
+    } catch (err) {
+      setSpecError(err instanceof Error ? err.message : 'Unable to save product specs.');
+    } finally {
+      setSavingSpecs(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 flex justify-end">
       <div className="bg-white w-full max-w-xl h-full overflow-y-auto border-l border-slate-200 shadow-xl flex flex-col justify-between">
         <div>
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
-            <div>
+          <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 sticky top-0 bg-white z-10">
+            <div className="min-w-0">
               <p className="text-xs font-mono tabular-nums text-slate-500">
                 {order.orderNumber} · {order.orderDate}
               </p>
-              <h2 className="text-base font-semibold text-slate-900 mt-0.5">
+              <h2 className="text-base font-semibold text-slate-900 mt-0.5 truncate">
                 {order.clientName}
               </h2>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={onEdit}
@@ -1532,9 +1814,9 @@ function OrderDetailDrawer({
             </div>
           </div>
 
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
             <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-3">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <p className="text-[11px] text-slate-500 mb-0.5">Factory Cost</p>
                   <DualPrice
@@ -1671,9 +1953,17 @@ function OrderDetailDrawer({
             </div>
 
             <div className="space-y-2.5 pt-2 border-t border-slate-200">
-              <h3 className="text-xs font-semibold text-slate-800">
-                Order Products ({items.length || order.itemCount} items · {formatCount(order.totalUnits)} pcs total)
-              </h3>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xs font-semibold text-slate-800">
+                  Order Products &amp; Client Specs ({items.length || order.itemCount} items ·{' '}
+                  {formatCount(order.totalUnits)} pcs total)
+                </h3>
+              </div>
+              {specError && (
+                <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
+                  {specError}
+                </p>
+              )}
               {loadingItems ? (
                 <div className="h-16 bg-slate-50 border border-slate-200 rounded-lg animate-pulse" />
               ) : itemsError ? (
@@ -1684,28 +1974,127 @@ function OrderDetailDrawer({
                 <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
                   {items.map((item) => {
                     const itemFin = getOrderItemFinancials(item, orderRate);
+                    const isEditingSpecs = editingSpecItemId === item.id;
                     return (
-                      <div key={item.id} className="p-3 text-xs flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-slate-900 truncate">
-                            {item.productName}
-                          </p>
-                          <p className="text-[11px] text-slate-500 font-mono tabular-nums mt-0.5">
-                            {item.productSku} · {item.neckSize} · {formatCount(item.quantity)} pcs
-                          </p>
-                          <p className="text-[11px] text-slate-500 font-mono tabular-nums mt-0.5">
-                            Sell {formatDualUnitPriceFromUsd(itemFin.unitSellingUsd, orderRate)} · Cost{' '}
-                            {formatDualUnitPrice(itemFin.unitFactoryRmb, orderRate)}
-                          </p>
+                      <div key={item.id} className="p-3 text-xs space-y-2.5">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900 truncate">
+                              {item.productName}
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-mono tabular-nums mt-0.5">
+                              {item.productSku} · {formatCount(item.quantity)} pcs
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-mono tabular-nums mt-0.5">
+                              Sell {formatDualUnitPriceFromUsd(itemFin.unitSellingUsd, orderRate)} · Cost{' '}
+                              {formatDualUnitPrice(itemFin.unitFactoryRmb, orderRate)}
+                            </p>
+                          </div>
+                          <div className="shrink-0 sm:text-right flex sm:block items-center justify-between gap-2">
+                            <DualPrice
+                              rmbAmount={itemFin.lineTotalRmb}
+                              usdAmount={itemFin.lineTotalUsd}
+                              primaryCurrency={currency}
+                              align="right"
+                            />
+                            {!isTerminal && !isEditingSpecs && (
+                              <button
+                                type="button"
+                                onClick={() => startEditSpecs(item)}
+                                className="sm:mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded cursor-pointer"
+                              >
+                                <Edit3 className="w-2.5 h-2.5" />
+                                <span>
+                                  {item.colorFinish || item.dipTube ? 'Edit Specs' : 'Add Specs'}
+                                </span>
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="shrink-0">
-                          <DualPrice
-                            rmbAmount={itemFin.lineTotalRmb}
-                            usdAmount={itemFin.lineTotalUsd}
-                            primaryCurrency={currency}
-                            align="right"
-                          />
-                        </div>
+
+                        {isEditingSpecs ? (
+                          <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-md space-y-2.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                              <div>
+                                <label className="block text-[10px] font-medium text-slate-600 mb-1">
+                                  Neck Size
+                                </label>
+                                <input
+                                  type="text"
+                                  value={specNeckSize}
+                                  onChange={(e) => setSpecNeckSize(e.target.value)}
+                                  maxLength={32}
+                                  placeholder="28/410"
+                                  className="w-full px-2 py-1.5 text-xs font-mono bg-white border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-medium text-slate-600 mb-1">
+                                  Colors
+                                </label>
+                                <input
+                                  type="text"
+                                  value={specColorFinish}
+                                  onChange={(e) => setSpecColorFinish(e.target.value)}
+                                  maxLength={64}
+                                  placeholder="e.g. Matte Black / Pantone"
+                                  className="w-full px-2 py-1.5 text-xs bg-white border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-medium text-slate-600 mb-1">
+                                  Dip Tube
+                                </label>
+                                <input
+                                  type="text"
+                                  value={specDipTube}
+                                  onChange={(e) => setSpecDipTube(e.target.value)}
+                                  maxLength={64}
+                                  placeholder="e.g. 215mm FBOG"
+                                  className="w-full px-2 py-1.5 text-xs bg-white border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditingSpecItemId(null)}
+                                className="px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-200/70 rounded cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveSpecs(item)}
+                                disabled={savingSpecs}
+                                className="px-3 py-1 text-[11px] font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded disabled:opacity-60 cursor-pointer"
+                              >
+                                {savingSpecs ? 'Saving...' : 'Save Specs'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-[11px]">
+                            <div>
+                              <span className="text-slate-400 block text-[10px]">Neck Size</span>
+                              <span className="font-mono font-medium text-slate-800">
+                                {item.neckSize || '—'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block text-[10px]">Colors</span>
+                              <span className="font-medium text-slate-800">
+                                {item.colorFinish || '—'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block text-[10px]">Dip Tube</span>
+                              <span className="font-medium text-slate-800">
+                                {item.dipTube || '—'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1794,7 +2183,7 @@ function OrderDetailDrawer({
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-t border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
           {confirmDelete ? (
             <div className="flex items-center gap-2">
               <span className="text-xs text-rose-700 font-medium">Delete this order?</span>
@@ -1883,6 +2272,8 @@ function AdjustMarginModal({
               productName: item.productName,
               category: item.category,
               neckSize: item.neckSize,
+              colorFinish: item.colorFinish || '',
+              dipTube: item.dipTube || '',
               quantity: item.quantity,
               unitFactoryPrice: Number(itemFin.unitFactoryRmb.toFixed(4)),
               unitSellingPrice: Number((itemFin.unitSellingUsd ?? 0).toFixed(4)),
@@ -2020,6 +2411,8 @@ function AdjustMarginModal({
           productName: row.productName,
           category: row.category,
           neckSize: row.neckSize,
+          colorFinish: row.colorFinish || '',
+          dipTube: row.dipTube || '',
           quantity: row.quantity,
           unitFactoryPrice: row.unitFactoryPrice,
           unitSellingPrice: row.newSellingUsd,
@@ -2033,9 +2426,9 @@ function AdjustMarginModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-2xl shadow-lg my-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto">
+      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-2xl shadow-lg max-h-[calc(100dvh-1.25rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden my-auto">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-slate-200 shrink-0">
           <div>
             <p className="text-[11px] font-mono tabular-nums text-slate-500">
               {order.orderNumber} · {order.clientName}
@@ -2052,7 +2445,7 @@ function AdjustMarginModal({
           </button>
         </div>
 
-        <form onSubmit={handleApply} className="p-5 space-y-4">
+        <form onSubmit={handleApply} className="p-4 sm:p-5 space-y-4 flex-1 overflow-y-auto">
           <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
               <div>
@@ -2123,7 +2516,7 @@ function AdjustMarginModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 p-3.5 bg-white border border-slate-200 rounded-lg text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 bg-white border border-slate-200 rounded-lg text-xs">
             <div>
               <p className="text-[11px] text-slate-500">Factory Cost (Fixed)</p>
               <div className="mt-0.5">

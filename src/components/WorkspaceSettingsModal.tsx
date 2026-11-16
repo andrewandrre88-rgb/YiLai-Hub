@@ -67,9 +67,9 @@ export function WorkspaceSettingsModal({
             : 'Rate unavailable';
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md shadow-lg">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto">
+      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md shadow-lg max-h-[calc(100dvh-1.25rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden my-auto">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-slate-200 shrink-0">
           <h2 className="text-base font-semibold text-slate-900">Workspace & Currency Settings</h2>
           <button
             type="button"
@@ -81,7 +81,7 @@ export function WorkspaceSettingsModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 flex-1 overflow-y-auto">
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">
               Company / Factory Name
@@ -184,7 +184,7 @@ export function WorkspaceSettingsModal({
                 />
                 <span className="text-xs font-mono text-slate-600">%</span>
               </div>
-              <div className="mt-2 pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px] font-mono tabular-nums">
+              <div className="mt-2 pt-2 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-1.5 text-[11px] font-mono tabular-nums">
                 <span className="text-slate-600">
                   {fx.isManual ? 'Manual rate' : 'Live rate'}: ¥{formatExchangeRate(fx.baseRate)}
                 </span>

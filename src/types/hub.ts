@@ -264,6 +264,8 @@ export interface OrderItem {
   productName: string;
   category: ProductCategory;
   neckSize: string;
+  colorFinish?: string;
+  dipTube?: string;
   quantity: number;
   unitFactoryPrice: number;
   unitSellingPrice: number;
@@ -279,6 +281,8 @@ export interface OrderDraftItem {
   productName: string;
   category: ProductCategory;
   neckSize: string;
+  colorFinish?: string;
+  dipTube?: string;
   quantity: number;
   unitFactoryPrice: number;
   unitSellingPrice: number;

@@ -103,7 +103,7 @@ export function ProductsView({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg overflow-x-auto">
           {CATEGORY_TABS.map((tab) => (
             <button
@@ -121,8 +121,8 @@ export function ProductsView({
           ))}
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <div className="relative flex-1 sm:w-64">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5">
+          <div className="relative flex-1 min-w-[180px] sm:w-64">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
@@ -159,7 +159,7 @@ export function ProductsView({
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Add Product</span>
@@ -202,7 +202,122 @@ export function ProductsView({
         </div>
       ) : viewMode === 'table' ? (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="md:hidden divide-y divide-slate-100">
+            {filtered.map((product) => {
+              const pricing = getProductPricing(product, usdToRmbRate);
+              const marginPct = pricing.marginPct;
+              const marginPositive = (pricing.profitUsd ?? 0) >= 0;
+              return (
+                <div key={product.id} className="p-4 space-y-3 text-xs">
+                  <div className="flex items-start gap-3">
+                    <ProductImage
+                      imageKey={product.imageKey}
+                      imageUrl={product.imageUrl}
+                      alt={product.name}
+                      className="w-12 h-12 rounded-md border border-slate-200 shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-slate-900 line-clamp-2">{product.name}</p>
+                      <p className="text-[11px] font-mono tabular-nums text-slate-500 mt-0.5">
+                        {product.sku} · {product.neckSize}
+                        {product.dosage ? ` · ${product.dosage}` : ''}
+                      </p>
+                      <p className="text-[11px] text-slate-500 truncate">
+                        {CATEGORY_META[product.category].shortLabel}
+                        {product.colorFinish ? ` · ${product.colorFinish}` : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 items-start">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Factory</span>
+                      <DualPrice
+                        rmbAmount={pricing.factoryRmb}
+                        usdAmount={pricing.factoryUsd}
+                        primaryCurrency={currency}
+                        unit
+                        primaryClassName="font-medium text-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Selling</span>
+                      <DualPrice
+                        rmbAmount={pricing.sellingRmb}
+                        usdAmount={pricing.sellingUsd}
+                        primaryCurrency={currency}
+                        unit
+                      />
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 block">Margin</span>
+                      <span
+                        className={`font-mono tabular-nums font-semibold ${
+                          marginPositive ? 'text-emerald-700' : 'text-rose-700'
+                        }`}
+                      >
+                        {marginPct.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <span className="font-mono tabular-nums text-[11px] text-slate-500">
+                      MOQ {formatCount(product.moq)} · Ctn {formatCount(product.cartonQty)}
+                    </span>
+                    {confirmDeleteId === product.id ? (
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleConfirmDelete(product.id)}
+                          disabled={deletingId === product.id}
+                          className="px-2 py-1 text-[11px] font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded cursor-pointer"
+                        >
+                          {deletingId === product.id ? 'Removing...' : 'Confirm'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100 rounded cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => onQuickOrderProduct(product)}
+                          title="Create order with this product"
+                          className="p-1.5 text-teal-700 hover:bg-teal-50 rounded-md cursor-pointer"
+                        >
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(product)}
+                          title="Edit product"
+                          className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(product.id)}
+                          title="Delete product"
+                          className="p-1.5 text-slate-400 hover:text-rose-700 hover:bg-rose-50 rounded-md cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold text-slate-500 tracking-wide">
@@ -361,7 +476,7 @@ export function ProductsView({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
           {filtered.map((product) => {
             const pricing = getProductPricing(product, usdToRmbRate);
             const marginPct = pricing.marginPct;
@@ -561,6 +676,7 @@ function ProductFormModal({
       ? String(Number(initialPricing.sellingUsd.toFixed(4)))
       : '0.25'
   );
+  const [marginDraft, setMarginDraft] = useState<string | null>(null);
   const [moq, setMoq] = useState(initial ? String(initial.moq) : '10000');
   const [cartonQty, setCartonQty] = useState(initial ? String(initial.cartonQty) : '500');
   const [boxLengthCm, setBoxLengthCm] = useState(
@@ -599,6 +715,40 @@ function ProductFormModal({
     sellingUsd > 0 && liveProfitPerUnitUsd !== null
       ? (liveProfitPerUnitUsd / sellingUsd) * 100
       : 0;
+
+  const canAdjustByMargin = factoryUsd !== null && factoryUsd > 0;
+  const displayedMarginInput = marginDraft !== null ? marginDraft : liveMarginPct.toFixed(1);
+
+  const applyTargetMargin = (targetPct: number) => {
+    if (!canAdjustByMargin || factoryUsd === null) return;
+    const clamped = Math.min(95, Math.max(0, Number(targetPct.toFixed(1))));
+    const nextSellingUsd = Number((factoryUsd / (1 - clamped / 100)).toFixed(4));
+    setMarginDraft(null);
+    setSellingPrice(String(nextSellingUsd));
+  };
+
+  const handleMarginInputChange = (raw: string) => {
+    setMarginDraft(raw);
+    const parsed = Number(raw);
+    if (
+      raw.trim() !== '' &&
+      Number.isFinite(parsed) &&
+      parsed >= 0 &&
+      parsed <= 95 &&
+      canAdjustByMargin &&
+      factoryUsd !== null
+    ) {
+      const nextSellingUsd = Number((factoryUsd / (1 - parsed / 100)).toFixed(4));
+      setSellingPrice(String(nextSellingUsd));
+    }
+  };
+
+  const stepMargin = (delta: number) => {
+    const base = Number.isFinite(Number(displayedMarginInput))
+      ? Number(displayedMarginInput)
+      : liveMarginPct;
+    applyTargetMargin(base + delta);
+  };
 
   const lNum = Math.max(0, Number(boxLengthCm) || 0);
   const wNum = Math.max(0, Number(boxWidthCm) || 0);
@@ -696,9 +846,9 @@ function ProductFormModal({
   const isUploadedDataUrl = imageUrl.startsWith('data:');
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-2xl shadow-lg my-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto">
+      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-2xl shadow-lg max-h-[calc(100dvh-1.25rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden my-auto">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-slate-200 shrink-0">
           <h2 className="text-base font-semibold text-slate-900">
             {initial ? 'Edit Dispensing Product' : 'Add Dispensing Product'}
           </h2>
@@ -712,7 +862,7 @@ function ProductFormModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 max-h-[82vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 flex-1 overflow-y-auto">
           <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <ProductImage
               imageKey={imageKey}
@@ -888,7 +1038,10 @@ function ProductFormModal({
                   step="0.0001"
                   min="0"
                   value={factoryPrice}
-                  onChange={(e) => setFactoryPrice(e.target.value)}
+                  onChange={(e) => {
+                    setMarginDraft(null);
+                    setFactoryPrice(e.target.value);
+                  }}
                   required
                   className="w-full px-3 py-2 text-xs font-mono tabular-nums bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700"
                 />
@@ -906,13 +1059,89 @@ function ProductFormModal({
                   step="0.0001"
                   min="0"
                   value={sellingPrice}
-                  onChange={(e) => setSellingPrice(e.target.value)}
+                  onChange={(e) => {
+                    setMarginDraft(null);
+                    setSellingPrice(e.target.value);
+                  }}
                   required
                   className="w-full px-3 py-2 text-xs font-mono tabular-nums bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700"
                 />
                 <p className="text-[11px] font-mono tabular-nums text-slate-500 mt-1">
                   ≈ {formatUnitPriceValue(sellingRmb, 'CNY')} RMB
                 </p>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-200/80 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label
+                  htmlFor="product-profit-margin"
+                  className="text-xs font-medium text-slate-700"
+                >
+                  Adjust Profit Margin (%)
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={!canAdjustByMargin}
+                    onClick={() => stepMargin(-1)}
+                    className="px-2 py-1 text-[11px] font-mono font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-md disabled:opacity-50 cursor-pointer"
+                  >
+                    -1%
+                  </button>
+                  <div className="relative w-24">
+                    <input
+                      id="product-profit-margin"
+                      type="number"
+                      min="0"
+                      max="95"
+                      step="0.1"
+                      disabled={!canAdjustByMargin}
+                      value={displayedMarginInput}
+                      onChange={(e) => handleMarginInputChange(e.target.value)}
+                      onBlur={() => setMarginDraft(null)}
+                      className="w-full pl-2.5 pr-6 py-1 text-xs font-mono tabular-nums font-semibold text-slate-900 bg-white border border-slate-300 rounded-md disabled:bg-slate-100 disabled:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] font-mono text-slate-500">
+                      %
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!canAdjustByMargin}
+                    onClick={() => stepMargin(1)}
+                    className="px-2 py-1 text-[11px] font-mono font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-md disabled:opacity-50 cursor-pointer"
+                  >
+                    +1%
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] text-slate-500 mr-1">Quick set:</span>
+                {[15, 20, 25, 30, 35, 40].map((preset) => {
+                  const active = canAdjustByMargin && Math.abs(liveMarginPct - preset) < 0.15;
+                  return (
+                    <button
+                      key={preset}
+                      type="button"
+                      disabled={!canAdjustByMargin}
+                      onClick={() => applyTargetMargin(preset)}
+                      className={`px-2 py-0.5 text-[11px] font-mono tabular-nums font-medium rounded border transition-colors disabled:opacity-50 cursor-pointer ${
+                        active
+                          ? 'bg-teal-700 text-white border-teal-700'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      {preset}%
+                    </button>
+                  );
+                })}
+                {!canAdjustByMargin && (
+                  <span className="text-[11px] text-amber-700 ml-auto">
+                    Enter factory price &gt; 0 to calculate sell price from margin
+                  </span>
+                )}
               </div>
             </div>
 
@@ -1092,18 +1321,18 @@ function ProductFormModal({
             </p>
           )}
 
-          <div className="flex items-center justify-end gap-2 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
+              className="w-full sm:w-auto px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg disabled:opacity-60 cursor-pointer"
+              className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg disabled:opacity-60 cursor-pointer"
             >
               {saving ? 'Saving...' : initial ? 'Update Product' : 'Save Product'}
             </button>

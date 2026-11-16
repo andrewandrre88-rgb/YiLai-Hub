@@ -1,18 +1,34 @@
 import { useState } from 'react';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, signOut } from 'firebase/auth';
 import { ArrowRight, CheckCircle2, Droplets, MessageSquare, PackageCheck } from 'lucide-react';
 import { auth, googleProvider } from '../lib/firebase';
 import { CATEGORY_IMAGES } from '../types/hub';
 
-export function AuthGate() {
+export const ALLOWED_OWNER_EMAIL = 'andrewandrre88@gmail.com';
+
+interface AuthGateProps {
+  externalError?: string | null;
+  onClearExternalError?: () => void;
+}
+
+export function AuthGate({ externalError, onClearExternalError }: AuthGateProps) {
   const [signingIn, setSigningIn] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleGoogleSignIn = async () => {
     setSigningIn(true);
     setErrorMessage(null);
+    onClearExternalError?.();
     try {
-      await signInWithPopup(auth, googleProvider);
+      const cred = await signInWithPopup(auth, googleProvider);
+      const email = (cred.user.email || '').trim().toLowerCase();
+      if (!cred.user.emailVerified || email !== ALLOWED_OWNER_EMAIL) {
+        await signOut(auth);
+        setErrorMessage(
+          `Access denied: ${cred.user.email || 'this account'} is not authorized. Only ${ALLOWED_OWNER_EMAIL} may access Yi Lai Hub.`
+        );
+        setSigningIn(false);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unable to complete sign in.';
       if (msg.includes('popup-closed-by-user')) {
@@ -51,7 +67,7 @@ export function AuthGate() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
-      <header className="w-full max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
+      <header className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex flex-wrap items-center justify-between gap-2">
         <span className="font-display text-xl font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0">
           Yi Lai Hub
         </span>
@@ -60,7 +76,7 @@ export function AuthGate() {
         </span>
       </header>
 
-      <main className="w-full max-w-6xl mx-auto px-6 py-10 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
         <div className="lg:col-span-6 space-y-6">
           <div className="space-y-3">
             <p className="text-xs font-semibold tracking-wider text-teal-700 uppercase">
@@ -96,16 +112,16 @@ export function AuthGate() {
               type="button"
               onClick={handleGoogleSignIn}
               disabled={signingIn}
-              className="inline-flex items-center gap-3 px-6 py-3 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 transition-colors disabled:opacity-60 cursor-pointer whitespace-nowrap"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-6 py-3 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 transition-colors disabled:opacity-60 cursor-pointer whitespace-nowrap"
             >
               <CheckCircle2 className="w-4 h-4 text-teal-400" />
               <span>{signingIn ? 'Signing in...' : 'Sign in with Google to Open Hub'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
-            {errorMessage && (
+            {(errorMessage || externalError) && (
               <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2 max-w-md">
-                {errorMessage}
+                {errorMessage || externalError}
               </p>
             )}
             <p className="text-xs text-slate-500">
@@ -115,7 +131,7 @@ export function AuthGate() {
           </div>
         </div>
 
-        <div className="lg:col-span-6 grid grid-cols-2 gap-4">
+        <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
           {showcaseItems.map((item) => (
             <div
               key={item.title}
@@ -138,7 +154,7 @@ export function AuthGate() {
         </div>
       </main>
 
-      <footer className="w-full max-w-6xl mx-auto px-6 py-5 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+      <footer className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-5 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
         <span>Yi Lai Hub</span>
         <span>Private Cloud Sync Enabled</span>
       </footer>

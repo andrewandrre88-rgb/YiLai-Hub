@@ -207,7 +207,7 @@ export function DashboardView({
   return (
     <div className="space-y-6">
       {isEmptyWorkspace && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <h2 className="text-base font-semibold text-slate-900">
               Welcome to Yi Lai Hub
@@ -218,7 +218,7 @@ export function DashboardView({
               sample catalog to explore immediately.
             </p>
           </div>
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <button
               type="button"
               onClick={handleSeed}
@@ -240,7 +240,7 @@ export function DashboardView({
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 sm:gap-4">
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <p className="text-xs font-medium text-slate-500">Order Revenue (USD & RMB)</p>
           <div className="mt-1.5">
@@ -304,16 +304,16 @@ export function DashboardView({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <section className="lg:col-span-8 bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 sm:gap-6 items-start">
+        <section className="xl:col-span-8 bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <div className="px-4 sm:px-5 py-3.5 sm:py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold text-slate-900">Recent Orders</h2>
               <p className="text-xs text-slate-500">
                 Click any order to update fulfillment status or share USD/RMB quotes on WhatsApp
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={onOpenNewOrder}
@@ -339,49 +339,45 @@ export function DashboardView({
               saved.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold text-slate-500">
-                    <th className="py-2.5 px-4">Order #</th>
-                    <th className="py-2.5 px-3">Client</th>
-                    <th className="py-2.5 px-3">Items</th>
-                    <th className="py-2.5 px-3 text-right">Total (USD / RMB)</th>
-                    <th className="py-2.5 px-3 text-right">Profit (USD / RMB)</th>
-                    <th className="py-2.5 px-4">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
-                  {orders.slice(0, 7).map((order) => {
-                    const statusMeta = ORDER_STATUS_META[order.status];
-                    const fin = getOrderFinancials(order, usdToRmbRate);
-                    return (
-                      <tr
-                        key={order.id}
-                        onClick={() => {
-                          onSelectOrder(order);
-                          onNavigate('orders');
-                        }}
-                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
-                      >
-                        <td className="py-2.5 px-4 font-mono tabular-nums font-semibold text-slate-900 whitespace-nowrap">
+            <>
+              <div className="sm:hidden divide-y divide-slate-100">
+                {orders.slice(0, 7).map((order) => {
+                  const statusMeta = ORDER_STATUS_META[order.status];
+                  const fin = getOrderFinancials(order, usdToRmbRate);
+                  return (
+                    <div
+                      key={order.id}
+                      onClick={() => {
+                        onSelectOrder(order);
+                        onNavigate('orders');
+                      }}
+                      className="p-4 space-y-2 hover:bg-slate-50/80 transition-colors cursor-pointer text-xs"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono tabular-nums font-semibold text-slate-900">
                           {order.orderNumber}
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-900 font-medium truncate max-w-[140px]">
-                          {order.clientName}
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-600 truncate max-w-[190px]">
-                          {order.itemsSummary}
-                        </td>
-                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                        </span>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium border rounded-md ${statusMeta.colorClass}`}
+                        >
+                          {statusMeta.label}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-900 truncate">{order.clientName}</p>
+                        <p className="text-[11px] text-slate-500 truncate">{order.itemsSummary}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-100">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">Total</span>
                           <DualPrice
                             rmbAmount={fin.revenueRmb}
                             usdAmount={fin.revenueUsd}
                             primaryCurrency={currency}
-                            align="right"
                           />
-                        </td>
-                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 block">Profit</span>
                           <DualPrice
                             rmbAmount={fin.profitRmb}
                             usdAmount={fin.profitUsd}
@@ -394,24 +390,87 @@ export function DashboardView({
                             }
                             secondaryClassName="text-[11px] text-emerald-700/75"
                           />
-                        </td>
-                        <td className="py-2.5 px-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium border rounded-md ${statusMeta.colorClass}`}
-                          >
-                            {statusMeta.label}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold text-slate-500">
+                      <th className="py-2.5 px-4">Order #</th>
+                      <th className="py-2.5 px-3">Client</th>
+                      <th className="py-2.5 px-3">Items</th>
+                      <th className="py-2.5 px-3 text-right">Total (USD / RMB)</th>
+                      <th className="py-2.5 px-3 text-right">Profit (USD / RMB)</th>
+                      <th className="py-2.5 px-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs">
+                    {orders.slice(0, 7).map((order) => {
+                      const statusMeta = ORDER_STATUS_META[order.status];
+                      const fin = getOrderFinancials(order, usdToRmbRate);
+                      return (
+                        <tr
+                          key={order.id}
+                          onClick={() => {
+                            onSelectOrder(order);
+                            onNavigate('orders');
+                          }}
+                          className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                        >
+                          <td className="py-2.5 px-4 font-mono tabular-nums font-semibold text-slate-900 whitespace-nowrap">
+                            {order.orderNumber}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-900 font-medium truncate max-w-[140px]">
+                            {order.clientName}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600 truncate max-w-[190px]">
+                            {order.itemsSummary}
+                          </td>
+                          <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                            <DualPrice
+                              rmbAmount={fin.revenueRmb}
+                              usdAmount={fin.revenueUsd}
+                              primaryCurrency={currency}
+                              align="right"
+                            />
+                          </td>
+                          <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                            <DualPrice
+                              rmbAmount={fin.profitRmb}
+                              usdAmount={fin.profitUsd}
+                              primaryCurrency={currency}
+                              align="right"
+                              primaryClassName={
+                                (fin.profitUsd ?? 0) >= 0
+                                  ? 'font-semibold text-emerald-700'
+                                  : 'font-semibold text-rose-700'
+                              }
+                              secondaryClassName="text-[11px] text-emerald-700/75"
+                            />
+                          </td>
+                          <td className="py-2.5 px-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium border rounded-md ${statusMeta.colorClass}`}
+                            >
+                              {statusMeta.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </section>
 
-        <div className="lg:col-span-4 space-y-6">
+        <div className="xl:col-span-4 space-y-5 sm:space-y-6">
           <section className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-900">Sales by Product Line</h2>

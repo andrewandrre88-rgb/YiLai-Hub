@@ -134,7 +134,7 @@ export function ClientsView({
             setEditingClient(null);
             setModalOpen(true);
           }}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Add Client</span>
@@ -178,7 +178,130 @@ export function ClientsView({
         </div>
       ) : (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="md:hidden divide-y divide-slate-100">
+            {filtered.map((client) => {
+              const stat = clientStats.get(client.id) || {
+                count: 0,
+                revenueRmb: 0,
+                revenueUsd: 0,
+                lastDate: '',
+              };
+              const waUrl = getWhatsappUrl(
+                client.whatsappNumber,
+                `Hi ${client.contactName}, checking in from Yi Lai Hub regarding your dispensing packaging order.`
+              );
+
+              return (
+                <div key={client.id} className="p-4 space-y-2.5 text-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900">{client.companyName}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                        {client.contactName}
+                        {client.country ? ` · ${client.country}` : ''}
+                        {client.email ? ` · ${client.email}` : ''}
+                      </p>
+                    </div>
+                    <span className="font-mono tabular-nums text-[11px] text-slate-600 shrink-0">
+                      {stat.count} {stat.count === 1 ? 'order' : 'orders'}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono tabular-nums font-medium text-slate-900">
+                        {client.whatsappNumber}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyWhatsapp(client)}
+                        title="Copy WhatsApp number"
+                        className="p-1 text-slate-400 hover:text-slate-700 rounded cursor-pointer"
+                      >
+                        {copiedId === client.id ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                      {waUrl && (
+                        <a
+                          href={waUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md whitespace-nowrap shrink-0"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          <span>Chat</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      )}
+                    </div>
+                    <DualPrice
+                      rmbAmount={stat.revenueRmb}
+                      usdAmount={stat.revenueUsd}
+                      primaryCurrency={currency}
+                      align="right"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
+                    {confirmDeleteId === client.id ? (
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleConfirmDelete(client.id)}
+                          disabled={deletingId === client.id}
+                          className="px-2 py-1 text-[11px] font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded cursor-pointer"
+                        >
+                          {deletingId === client.id ? 'Removing...' : 'Confirm'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100 rounded cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onNewOrderForClient(client)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-teal-800 bg-teal-50 hover:bg-teal-100 rounded-md cursor-pointer"
+                        >
+                          <ShoppingBag className="w-3 h-3" />
+                          <span>New Order</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingClient(client);
+                            setModalOpen(true);
+                          }}
+                          title="Edit client"
+                          className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(client.id)}
+                          title="Delete client"
+                          className="p-1.5 text-slate-400 hover:text-rose-700 hover:bg-rose-50 rounded-md cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold text-slate-500 tracking-wide">
@@ -378,9 +501,9 @@ function ClientFormModal({ initial, onClose, onSave }: ClientFormModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md shadow-lg">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto">
+      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md shadow-lg max-h-[calc(100dvh-1.25rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden my-auto">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-slate-200 shrink-0">
           <h2 className="text-base font-semibold text-slate-900">
             {initial ? 'Edit Client Contact' : 'Add New Client'}
           </h2>
@@ -394,7 +517,7 @@ function ClientFormModal({ initial, onClose, onSave }: ClientFormModalProps) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 flex-1 overflow-y-auto">
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">
               Company / Brand Name

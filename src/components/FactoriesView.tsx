@@ -127,7 +127,7 @@ export function FactoriesView({
             setEditingFactory(null);
             setModalOpen(true);
           }}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Add Factory</span>
@@ -171,7 +171,145 @@ export function FactoriesView({
         </div>
       ) : (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="md:hidden divide-y divide-slate-100">
+            {filtered.map((factory) => {
+              const linked = productsByFactory.get(factory.id) || [];
+              const isNumericPhone =
+                Boolean(factory.contactPhone) &&
+                !/[a-zA-Z]/.test(factory.contactPhone) &&
+                factory.contactPhone.replace(/[^\d]/g, '').length >= 8;
+              const waUrl = isNumericPhone
+                ? getWhatsappUrl(
+                    factory.contactPhone,
+                    `Hello ${factory.contactPerson}, checking production status from Yi Lai Hub.`
+                  )
+                : '';
+
+              return (
+                <div
+                  key={factory.id}
+                  onClick={() => setSelectedFactory(factory)}
+                  className="p-4 space-y-2.5 text-xs hover:bg-slate-50/80 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900">{factory.factoryName}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {factory.specialty || 'Dispensing Components'}
+                        {factory.paymentTerms ? ` · ${factory.paymentTerms}` : ''}
+                      </p>
+                    </div>
+                    <span className="font-mono tabular-nums text-[11px] font-semibold text-teal-800 shrink-0">
+                      {linked.length} SKUs
+                    </span>
+                  </div>
+
+                  <div
+                    className="flex flex-wrap items-center justify-between gap-2 text-[11px]"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div>
+                      <span className="font-medium text-slate-800">{factory.contactPerson}</span>
+                      {factory.location ? (
+                        <span className="text-slate-500"> · {factory.location}</span>
+                      ) : null}
+                      {factory.contactPhone ? (
+                        <span className="block font-mono tabular-nums text-slate-600 mt-0.5">
+                          {factory.contactPhone}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {factory.contactPhone && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyContact(factory)}
+                          className="p-1.5 text-slate-500 hover:bg-slate-100 rounded cursor-pointer"
+                          title="Copy phone / WeChat"
+                        >
+                          {copiedId === factory.id ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      )}
+                      {waUrl && (
+                        <a
+                          href={waUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 rounded"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          <span>Chat</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  <div
+                    className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="font-mono tabular-nums text-[11px] text-slate-600">
+                      Lead time: {factory.leadTimeDays} days
+                    </span>
+                    {confirmDeleteId === factory.id ? (
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleConfirmDelete(factory.id)}
+                          disabled={deletingId === factory.id}
+                          className="px-2 py-1 text-[11px] font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded cursor-pointer"
+                        >
+                          {deletingId === factory.id ? 'Removing...' : 'Confirm'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100 rounded cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFactory(factory)}
+                          className="px-2.5 py-1 text-[11px] font-medium text-teal-800 bg-teal-50 hover:bg-teal-100 rounded-md cursor-pointer"
+                        >
+                          Details
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingFactory(factory);
+                            setModalOpen(true);
+                          }}
+                          title="Edit factory"
+                          className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(factory.id)}
+                          title="Delete factory"
+                          className="p-1.5 text-slate-400 hover:text-rose-700 hover:bg-rose-50 rounded-md cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold text-slate-500 tracking-wide">
@@ -409,9 +547,9 @@ function FactoryFormModal({ initial, onClose, onSave }: FactoryFormModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-lg shadow-lg my-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto">
+      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-lg shadow-lg max-h-[calc(100dvh-1.25rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden my-auto">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-slate-200 shrink-0">
           <h2 className="text-base font-semibold text-slate-900">
             {initial ? 'Edit Partner Factory' : 'Add Partner Factory'}
           </h2>
@@ -425,7 +563,7 @@ function FactoryFormModal({ initial, onClose, onSave }: FactoryFormModalProps) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 flex-1 overflow-y-auto">
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">
               Factory Name
@@ -598,7 +736,7 @@ function FactoryDetailDrawer({
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 flex justify-end">
       <div className="bg-white w-full max-w-lg h-full shadow-xl border-l border-slate-200 flex flex-col">
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+        <div className="px-4 sm:px-5 py-3.5 sm:py-4 border-b border-slate-200 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <FactoryIcon className="w-3.5 h-3.5 text-teal-700" />
@@ -628,8 +766,8 @@ function FactoryDetailDrawer({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
-          <div className="grid grid-cols-2 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
             <div>
               <p className="text-[11px] text-slate-500">Contact Person</p>
               <p className="font-semibold text-slate-900 mt-0.5">{factory.contactPerson}</p>
@@ -709,7 +847,7 @@ function FactoryDetailDrawer({
                 {linkedProducts.map((prod) => {
                   const pricing = getProductPricing(prod, usdToRmbRate);
                   return (
-                    <div key={prod.id} className="p-3 flex items-center justify-between gap-3">
+                    <div key={prod.id} className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
                       <div className="min-w-0">
                         <p className="font-semibold text-slate-900 truncate">{prod.name}</p>
                         <p className="text-[11px] text-slate-500 font-mono tabular-nums mt-0.5">
@@ -717,7 +855,7 @@ function FactoryDetailDrawer({
                           {formatCount(prod.moq)}
                         </p>
                       </div>
-                      <div className="text-right shrink-0">
+                      <div className="sm:text-right shrink-0">
                         <p className="text-[10px] text-slate-400">Factory Cost</p>
                         <DualPrice
                           rmbAmount={pricing.factoryRmb}

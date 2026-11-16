@@ -384,6 +384,14 @@
           "type": "string",
           "maxLength": 32
         },
+        "colorFinish": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "dipTube": {
+          "type": "string",
+          "maxLength": 64
+        },
         "quantity": {
           "type": "integer"
         },

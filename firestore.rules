@@ -5,12 +5,19 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    function isAllowedOwnerEmail() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email is string
+        && request.auth.token.email.lower() == 'andrewandrre88@gmail.com';
+    }
+
     function isSignedIn() {
-      return request.auth != null;
+      return isAllowedOwnerEmail();
     }
 
     function isVerified() {
-      return request.auth != null && request.auth.token.email_verified == true;
+      return isAllowedOwnerEmail();
     }
 
     function isValidId(id) {
@@ -177,8 +184,9 @@ service cloud.firestore {
         ])
         && data.keys().hasOnly([
           'id', 'ownerId', 'orderId', 'productId', 'productSku', 'productName',
-          'category', 'neckSize', 'quantity', 'unitFactoryPrice', 'unitSellingPrice',
-          'lineCost', 'lineTotal', 'priceCurrency', 'createdAt'
+          'category', 'neckSize', 'colorFinish', 'dipTube', 'quantity',
+          'unitFactoryPrice', 'unitSellingPrice', 'lineCost', 'lineTotal',
+          'priceCurrency', 'createdAt'
         ])
         && data.id == itemId
         && isValidId(data.ownerId) && data.ownerId == request.auth.uid
@@ -188,6 +196,8 @@ service cloud.firestore {
         && data.productName is string && data.productName.size() >= 1 && data.productName.size() <= 140
         && isValidCategory(data.category)
         && data.neckSize is string && data.neckSize.size() <= 32
+        && (!('colorFinish' in data) || (data.colorFinish is string && data.colorFinish.size() <= 64))
+        && (!('dipTube' in data) || (data.dipTube is string && data.dipTube.size() <= 64))
         && data.quantity is int && data.quantity >= 1 && data.quantity <= 1000000000
         && data.unitFactoryPrice is number && data.unitFactoryPrice >= 0 && data.unitFactoryPrice <= 1000000
         && data.unitSellingPrice is number && data.unitSellingPrice >= 0 && data.unitSellingPrice <= 1000000
@@ -345,12 +355,23 @@ service cloud.firestore {
           && incoming().orderId == existing().orderId
           && incoming().productId == existing().productId
           && incoming().createdAt == existing().createdAt
-          && (!('priceCurrency' in existing()) || existing().priceCurrency == 'CNY')
-          && incoming().priceCurrency == 'RMB_USD'
           && get(/databases/$(database)/documents/orders/$(orderId)).data.ownerId == request.auth.uid
-          && incoming().diff(existing()).affectedKeys().hasOnly([
-            'unitFactoryPrice', 'unitSellingPrice', 'lineCost', 'lineTotal', 'priceCurrency'
-          ]);
+          && (
+            (
+              (!('priceCurrency' in existing()) || existing().priceCurrency == 'CNY')
+              && incoming().priceCurrency == 'RMB_USD'
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'unitFactoryPrice', 'unitSellingPrice', 'lineCost', 'lineTotal', 'priceCurrency'
+              ])
+            )
+            ||
+            (
+              !(get(/databases/$(database)/documents/orders/$(orderId)).data.status in ['completed', 'cancelled'])
+              && incoming().diff(existing()).affectedKeys().hasOnly([
+                'neckSize', 'colorFinish', 'dipTube'
+              ])
+            )
+          );
         allow delete: if isVerified() && isValidId(orderId) && isValidId(itemId)
           && existing().ownerId == request.auth.uid
           && get(/databases/$(database)/documents/orders/$(orderId)).data.ownerId == request.auth.uid;

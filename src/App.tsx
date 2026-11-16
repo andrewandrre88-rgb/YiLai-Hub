@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signOut } from 'firebase/auth';
 import {
   AlertCircle,
   ArrowLeftRight,
   ClipboardList,
   Factory as FactoryIcon,
+  FileText,
   LayoutDashboard,
   LogOut,
   Package,
@@ -22,7 +23,8 @@ import {
   deleteOrderWithItems,
   deleteProduct,
   ensureUserProfile,
-  repairLegacyUsdRecordsToRmb,
+  isQuotaExceededError,
+  isWriteQuotaPausedToday,
   saveClient,
   saveFactory,
   saveProduct,
@@ -50,22 +52,24 @@ import {
   UserProfile,
   formatExchangeRate,
 } from './types/hub';
-import { AuthGate } from './components/AuthGate';
+import { ALLOWED_OWNER_EMAIL, AuthGate } from './components/AuthGate';
 import { DashboardView } from './components/DashboardView';
 import { ProductsView } from './components/ProductsView';
 import { FactoriesView } from './components/FactoriesView';
 import { ClientsView } from './components/ClientsView';
 import { OrdersView } from './components/OrdersView';
+import { ProformaInvoiceView } from './components/ProformaInvoiceView';
 import { WorkspaceSettingsModal } from './components/WorkspaceSettingsModal';
 
-type NavTab = 'dashboard' | 'products' | 'factories' | 'clients' | 'orders';
+type NavTab = 'dashboard' | 'products' | 'factories' | 'clients' | 'orders' | 'proforma';
 
-const NAV_ITEMS: Array<{ id: NavTab; label: string; icon: typeof LayoutDashboard }> = [
+const NAV_ITEMS: Array<{ id: NavTab; label: string; mobileLabel?: string; icon: typeof LayoutDashboard }> = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'orders', label: 'Orders', icon: ClipboardList },
   { id: 'products', label: 'Products', icon: Package },
   { id: 'factories', label: 'Factories', icon: FactoryIcon },
   { id: 'clients', label: 'Clients', icon: Users },
+  { id: 'proforma', label: 'Proforma Invoice', mobileLabel: 'Invoice', icon: FileText },
 ];
 
 export default function App() {
@@ -86,15 +90,33 @@ export default function App() {
   const [preselectedClient, setPreselectedClient] = useState<Client | null>(null);
   const [preselectedProduct, setPreselectedProduct] = useState<Product | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const lastMigratedKeyRef = useRef<string | null>(null);
+  const [authDenialMessage, setAuthDenialMessage] = useState<string | null>(null);
   const fx = useExchangeRate();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (nextUser) => {
+      if (nextUser) {
+        const email = (nextUser.email || '').trim().toLowerCase();
+        if (!nextUser.emailVerified || email !== ALLOWED_OWNER_EMAIL) {
+          setAuthDenialMessage(
+            `Access denied: ${nextUser.email || 'this account'} is not authorized. Only ${ALLOWED_OWNER_EMAIL} may access Yi Lai Hub.`
+          );
+          setUser(null);
+          setAuthReady(true);
+          setProfile(null);
+          setProducts([]);
+          setFactories([]);
+          setClients([]);
+          setOrders([]);
+          setDataLoading(false);
+          void signOut(auth);
+          return;
+        }
+        setAuthDenialMessage(null);
+      }
       setUser(nextUser);
       setAuthReady(true);
       if (!nextUser) {
-        lastMigratedKeyRef.current = null;
         setProfile(null);
         setProducts([]);
         setFactories([]);
@@ -114,10 +136,24 @@ export default function App() {
 
     ensureUserProfile(user)
       .then((prof) => {
-        if (active) setProfile(prof);
+        if (active) {
+          setProfile(prof);
+          if (isWriteQuotaPausedToday()) {
+            setSyncError('Quota limit exceeded: resource-exhausted');
+          }
+        }
       })
       .catch((err) => {
         if (active) {
+          if (isQuotaExceededError(err)) {
+            setProfile({
+              uid: user.uid,
+              email: user.email || '',
+              displayName: user.displayName || 'Yi Lai Sales',
+              companyName: 'Yi Lai Dispensing Packaging',
+              defaultCurrency: 'USD',
+            });
+          }
           setSyncError(err instanceof Error ? err.message : 'Unable to load workspace profile.');
         }
       });
@@ -193,32 +229,6 @@ export default function App() {
     };
   }, [authReady, user]);
 
-  useEffect(() => {
-    if (!authReady || !user) return;
-    const rate = fx.usedRate;
-    const migrationKey = `${user.uid}:${rate === null ? 'pending' : 'fx'}`;
-    if (
-      lastMigratedKeyRef.current === `${user.uid}:fx` ||
-      lastMigratedKeyRef.current === migrationKey
-    ) {
-      return;
-    }
-    lastMigratedKeyRef.current = migrationKey;
-    let active = true;
-    repairLegacyUsdRecordsToRmb(user.uid, rate).catch((err) => {
-      if (active) {
-        setSyncError(
-          err instanceof Error
-            ? err.message
-            : 'Unable to migrate order and product pricing modes.'
-        );
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, [authReady, user, fx.usedRate]);
-
   if (!authReady) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -228,7 +238,12 @@ export default function App() {
   }
 
   if (!user) {
-    return <AuthGate />;
+    return (
+      <AuthGate
+        externalError={authDenialMessage}
+        onClearExternalError={() => setAuthDenialMessage(null)}
+      />
+    );
   }
 
   const currency: CurrencyCode = profile?.defaultCurrency === 'CNY' ? 'CNY' : 'USD';
@@ -323,12 +338,13 @@ export default function App() {
     factories: 'Manufacturing Factories',
     clients: 'Clients & WhatsApp Directory',
     orders: 'Order History & Pipeline',
+    proforma: 'Proforma Invoice Generator',
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-slate-50 print:bg-white flex flex-col md:flex-row">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex md:w-60 lg:w-64 md:flex-col md:fixed md:inset-y-0 bg-white border-r border-slate-200 z-30">
+      <aside className="print:hidden hidden md:flex md:w-60 lg:w-64 md:flex-col md:fixed md:inset-y-0 bg-white border-r border-slate-200 z-30">
         <div className="px-5 py-5 border-b border-slate-200">
           <span className="font-display text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap block">
             Yi Lai Hub
@@ -508,24 +524,24 @@ export default function App() {
       </aside>
 
       {/* Main Content Viewport */}
-      <div className="flex-1 md:pl-60 lg:pl-64 flex flex-col min-h-screen pb-16 md:pb-0">
-        <header className="bg-white border-b border-slate-200 px-5 sm:px-8 py-4 flex items-center justify-between gap-6 sticky top-0 z-20">
+      <div className="flex-1 md:pl-60 lg:pl-64 print:pl-0 flex flex-col min-h-screen pb-20 md:pb-0 print:pb-0">
+        <header className="print:hidden bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between gap-3 sm:gap-6 sticky top-0 z-20">
           <div className="min-w-0">
             <p className="text-[11px] font-medium text-slate-500 truncate">
               Yi Lai Hub <span aria-hidden="true">/</span> {tabTitles[activeTab]}{' '}
               <span aria-hidden="true">·</span>{' '}
               <span className="font-mono tabular-nums">USD & RMB (1:{formatExchangeRate(usdToRmbRate)})</span>
             </p>
-            <h1 className="font-display text-lg font-bold text-slate-900 truncate">
+            <h1 className="font-display text-base sm:text-lg font-bold text-slate-900 truncate">
               {tabTitles[activeTab]}
             </h1>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => setSettingsOpen(true)}
-              className="md:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 cursor-pointer"
+              className="md:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
               aria-label="Workspace settings"
             >
               <Settings className="w-4 h-4" />
@@ -533,7 +549,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => openNewOrder(null, null)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>New Order</span>
@@ -541,13 +557,21 @@ export default function App() {
           </div>
         </header>
 
-        <main className="flex-1 px-5 sm:px-8 py-6 max-w-7xl w-full mx-auto space-y-5">
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 print:p-0 max-w-7xl print:max-w-none w-full mx-auto space-y-5">
           {syncError && (
-            <div className="bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 flex items-start gap-2.5 text-xs text-rose-800">
+            <div className="print:hidden bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 flex items-start gap-2.5 text-xs text-rose-800">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <div className="min-w-0">
-                <p className="font-semibold">Database Sync Error</p>
-                <p className="mt-0.5 break-words">{syncError}</p>
+                <p className="font-semibold">
+                  {syncError.includes('resource-exhausted') || syncError.includes('Quota limit exceeded')
+                    ? 'Daily Firestore Write Quota Reached'
+                    : 'Database Sync Error'}
+                </p>
+                <p className="mt-0.5 break-words">
+                  {syncError.includes('resource-exhausted') || syncError.includes('Quota limit exceeded')
+                    ? 'Your free-tier daily Firestore write limit has been reached for today. Existing records remain readable, and writes will resume automatically after the daily quota resets tomorrow.'
+                    : syncError}
+                </p>
               </div>
             </div>
           )}
@@ -631,11 +655,21 @@ export default function App() {
               onSelectOrder={setSelectedOrder}
             />
           )}
+
+          {activeTab === 'proforma' && (
+            <ProformaInvoiceView
+              profile={profile}
+              orders={orders}
+              clients={clients}
+              products={products}
+              usdToRmbRate={usdToRmbRate}
+            />
+          )}
         </main>
       </div>
 
       {/* Mobile Bottom Navigation (compact <= 60px) */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 z-30 grid grid-cols-5">
+      <nav className="print:hidden md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 z-30 grid grid-cols-6 px-1">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = activeTab === item.id;
@@ -644,12 +678,12 @@ export default function App() {
               key={item.id}
               type="button"
               onClick={() => setActiveTab(item.id)}
-              className={`py-2.5 flex flex-col items-center justify-center gap-1 text-[11px] font-medium cursor-pointer ${
+              className={`py-2 flex flex-col items-center justify-center gap-0.5 text-[10px] sm:text-[11px] font-medium cursor-pointer truncate ${
                 active ? 'text-teal-700 font-semibold' : 'text-slate-500'
               }`}
             >
-              <Icon className="w-4 h-4" />
-              <span>{item.label}</span>
+              <Icon className="w-4 h-4 shrink-0" />
+              <span className="truncate max-w-full px-0.5">{item.mobileLabel || item.label}</span>
             </button>
           );
         })}
