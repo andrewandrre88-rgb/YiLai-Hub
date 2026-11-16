@@ -1,0 +1,360 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidCategory(cat) {
+      return cat in ['trigger_sprayer', 'lotion_pump', 'fine_mist_sprayer', 'foam_pump', 'cap_closure'];
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+          'uid', 'email', 'displayName', 'companyName', 'defaultCurrency', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'email', 'displayName', 'companyName', 'defaultCurrency', 'usdToRmbRate', 'createdAt', 'updatedAt'
+        ])
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && data.companyName is string && data.companyName.size() >= 1 && data.companyName.size() <= 120
+        && data.defaultCurrency in ['USD', 'CNY', 'EUR']
+        && (!('usdToRmbRate' in data) || (data.usdToRmbRate is number && data.usdToRmbRate >= 0.1 && data.usdToRmbRate <= 100))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidProduct(data, productId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'sku', 'name', 'category', 'neckSize', 'dosage',
+          'colorFinish', 'factoryPrice', 'sellingPrice', 'moq', 'cartonQty',
+          'imageKey', 'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'sku', 'name', 'category', 'neckSize', 'dosage',
+          'colorFinish', 'factoryPrice', 'sellingPrice', 'priceCurrency', 'moq', 'cartonQty',
+          'imageKey', 'imageUrl', 'boxLengthCm', 'boxWidthCm', 'boxHeightCm',
+          'grossWeightKg', 'netWeightKg', 'factoryId', 'factoryName', 'notes',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id == productId
+        && isValidId(data.ownerId) && data.ownerId == request.auth.uid
+        && data.sku is string && data.sku.size() >= 1 && data.sku.size() <= 64 && data.sku.matches('^[a-zA-Z0-9_\\-/\\. ]+$')
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 140
+        && isValidCategory(data.category)
+        && data.neckSize is string && data.neckSize.size() >= 1 && data.neckSize.size() <= 32
+        && data.dosage is string && data.dosage.size() <= 32
+        && data.colorFinish is string && data.colorFinish.size() <= 64
+        && data.factoryPrice is number && data.factoryPrice >= 0 && data.factoryPrice <= 1000000
+        && data.sellingPrice is number && data.sellingPrice >= 0 && data.sellingPrice <= 1000000
+        && (!('priceCurrency' in data) || data.priceCurrency in ['CNY', 'RMB_USD'])
+        && data.moq is int && data.moq >= 1 && data.moq <= 100000000
+        && data.cartonQty is int && data.cartonQty >= 1 && data.cartonQty <= 1000000
+        && data.imageKey in ['trigger_sprayer', 'lotion_pump', 'fine_mist_sprayer', 'foam_pump']
+        && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 300000))
+        && (!('boxLengthCm' in data) || (data.boxLengthCm is number && data.boxLengthCm >= 0 && data.boxLengthCm <= 10000))
+        && (!('boxWidthCm' in data) || (data.boxWidthCm is number && data.boxWidthCm >= 0 && data.boxWidthCm <= 10000))
+        && (!('boxHeightCm' in data) || (data.boxHeightCm is number && data.boxHeightCm >= 0 && data.boxHeightCm <= 10000))
+        && (!('grossWeightKg' in data) || (data.grossWeightKg is number && data.grossWeightKg >= 0 && data.grossWeightKg <= 10000))
+        && (!('netWeightKg' in data) || (data.netWeightKg is number && data.netWeightKg >= 0 && data.netWeightKg <= 10000))
+        && (!('factoryId' in data) || (data.factoryId is string && data.factoryId.size() <= 128 && (data.factoryId == '' || isValidId(data.factoryId))))
+        && (!('factoryName' in data) || (data.factoryName is string && data.factoryName.size() <= 140))
+        && data.notes is string && data.notes.size() <= 1000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFactory(data, factoryId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'factoryName', 'contactPerson', 'contactPhone',
+          'location', 'specialty', 'leadTimeDays', 'paymentTerms', 'notes',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'factoryName', 'contactPerson', 'contactPhone',
+          'location', 'specialty', 'leadTimeDays', 'paymentTerms', 'notes',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id == factoryId
+        && isValidId(data.ownerId) && data.ownerId == request.auth.uid
+        && data.factoryName is string && data.factoryName.size() >= 1 && data.factoryName.size() <= 140
+        && data.contactPerson is string && data.contactPerson.size() >= 1 && data.contactPerson.size() <= 100
+        && data.contactPhone is string && data.contactPhone.size() <= 64
+        && data.location is string && data.location.size() <= 100
+        && data.specialty is string && data.specialty.size() <= 140
+        && data.leadTimeDays is int && data.leadTimeDays >= 1 && data.leadTimeDays <= 365
+        && data.paymentTerms is string && data.paymentTerms.size() <= 140
+        && data.notes is string && data.notes.size() <= 1000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidClient(data, clientId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'companyName', 'contactName', 'whatsappNumber',
+          'country', 'email', 'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'companyName', 'contactName', 'whatsappNumber',
+          'country', 'email', 'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.id == clientId
+        && isValidId(data.ownerId) && data.ownerId == request.auth.uid
+        && data.companyName is string && data.companyName.size() >= 1 && data.companyName.size() <= 140
+        && data.contactName is string && data.contactName.size() >= 1 && data.contactName.size() <= 100
+        && data.whatsappNumber is string && data.whatsappNumber.size() >= 4 && data.whatsappNumber.size() <= 32
+        && data.country is string && data.country.size() <= 80
+        && data.email is string && data.email.size() <= 200
+        && data.notes is string && data.notes.size() <= 1000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidOrder(data, orderId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'orderNumber', 'clientId', 'clientName', 'clientWhatsapp',
+          'status', 'paymentStatus', 'primaryCategory', 'itemsSummary', 'itemCount',
+          'totalUnits', 'totalFactoryCost', 'totalAmount', 'orderDate',
+          'shippingNotes', 'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'orderNumber', 'clientId', 'clientName', 'clientWhatsapp',
+          'status', 'paymentStatus', 'primaryCategory', 'itemsSummary', 'itemCount',
+          'totalUnits', 'totalFactoryCost', 'totalAmount', 'exchangeRate', 'priceCurrency',
+          'orderDate', 'shippingNotes', 'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.id == orderId
+        && isValidId(data.ownerId) && data.ownerId == request.auth.uid
+        && data.orderNumber is string && data.orderNumber.size() >= 1 && data.orderNumber.size() <= 40 && data.orderNumber.matches('^[a-zA-Z0-9_\\- ]+$')
+        && isValidId(data.clientId)
+        && data.clientName is string && data.clientName.size() >= 1 && data.clientName.size() <= 140
+        && data.clientWhatsapp is string && data.clientWhatsapp.size() <= 32
+        && data.status in ['quoted', 'confirmed', 'in_production', 'shipped', 'completed', 'cancelled']
+        && data.paymentStatus in ['unpaid', 'deposit_paid', 'paid']
+        && isValidCategory(data.primaryCategory)
+        && data.itemsSummary is string && data.itemsSummary.size() >= 1 && data.itemsSummary.size() <= 240
+        && data.itemCount is int && data.itemCount >= 1 && data.itemCount <= 500
+        && data.totalUnits is int && data.totalUnits >= 1 && data.totalUnits <= 1000000000
+        && data.totalFactoryCost is number && data.totalFactoryCost >= 0 && data.totalFactoryCost <= 1000000000
+        && data.totalAmount is number && data.totalAmount >= 0 && data.totalAmount <= 1000000000
+        && (!('exchangeRate' in data) || (data.exchangeRate is number && data.exchangeRate >= 0.1 && data.exchangeRate <= 100))
+        && (!('priceCurrency' in data) || data.priceCurrency in ['CNY', 'RMB_USD'])
+        && data.orderDate is string && data.orderDate.size() >= 8 && data.orderDate.size() <= 32
+        && data.shippingNotes is string && data.shippingNotes.size() <= 500
+        && data.notes is string && data.notes.size() <= 1000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidOrderItem(data, orderId, itemId) {
+      return data.keys().hasAll([
+          'id', 'ownerId', 'orderId', 'productId', 'productSku', 'productName',
+          'category', 'neckSize', 'quantity', 'unitFactoryPrice', 'unitSellingPrice',
+          'lineCost', 'lineTotal', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ownerId', 'orderId', 'productId', 'productSku', 'productName',
+          'category', 'neckSize', 'quantity', 'unitFactoryPrice', 'unitSellingPrice',
+          'lineCost', 'lineTotal', 'priceCurrency', 'createdAt'
+        ])
+        && data.id == itemId
+        && isValidId(data.ownerId) && data.ownerId == request.auth.uid
+        && data.orderId == orderId
+        && isValidId(data.productId)
+        && data.productSku is string && data.productSku.size() >= 1 && data.productSku.size() <= 64
+        && data.productName is string && data.productName.size() >= 1 && data.productName.size() <= 140
+        && isValidCategory(data.category)
+        && data.neckSize is string && data.neckSize.size() <= 32
+        && data.quantity is int && data.quantity >= 1 && data.quantity <= 1000000000
+        && data.unitFactoryPrice is number && data.unitFactoryPrice >= 0 && data.unitFactoryPrice <= 1000000
+        && data.unitSellingPrice is number && data.unitSellingPrice >= 0 && data.unitSellingPrice <= 1000000
+        && data.lineCost is number && data.lineCost >= 0 && data.lineCost <= 1000000000
+        && data.lineTotal is number && data.lineTotal >= 0 && data.lineTotal <= 1000000000
+        && (!('priceCurrency' in data) || data.priceCurrency in ['CNY', 'RMB_USD'])
+        && data.createdAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow create: if isVerified() && isValidId(userId) && request.auth.uid == userId
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(userId) && request.auth.uid == userId
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'companyName', 'defaultCurrency', 'usdToRmbRate', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /products/{productId} {
+      allow get: if isSignedIn() && isValidId(productId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerified() && isValidId(productId)
+        && isValidProduct(incoming(), productId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(productId)
+        && isValidProduct(incoming(), productId)
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'sku', 'name', 'category', 'neckSize', 'dosage', 'colorFinish',
+          'factoryPrice', 'sellingPrice', 'priceCurrency', 'moq', 'cartonQty', 'imageKey', 'imageUrl',
+          'boxLengthCm', 'boxWidthCm', 'boxHeightCm', 'grossWeightKg', 'netWeightKg',
+          'factoryId', 'factoryName', 'notes', 'updatedAt'
+        ]);
+      allow delete: if isVerified() && isValidId(productId) && existing().ownerId == request.auth.uid;
+    }
+
+    match /factories/{factoryId} {
+      allow get: if isSignedIn() && isValidId(factoryId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerified() && isValidId(factoryId)
+        && isValidFactory(incoming(), factoryId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(factoryId)
+        && isValidFactory(incoming(), factoryId)
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'factoryName', 'contactPerson', 'contactPhone', 'location',
+          'specialty', 'leadTimeDays', 'paymentTerms', 'notes', 'updatedAt'
+        ]);
+      allow delete: if isVerified() && isValidId(factoryId) && existing().ownerId == request.auth.uid;
+    }
+
+    match /clients/{clientId} {
+      allow get: if isSignedIn() && isValidId(clientId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerified() && isValidId(clientId)
+        && isValidClient(incoming(), clientId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified() && isValidId(clientId)
+        && isValidClient(incoming(), clientId)
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'companyName', 'contactName', 'whatsappNumber', 'country', 'email', 'notes', 'updatedAt'
+        ]);
+      allow delete: if isVerified() && isValidId(clientId) && existing().ownerId == request.auth.uid;
+    }
+
+    match /orders/{orderId} {
+      allow get: if isSignedIn() && isValidId(orderId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isVerified() && isValidId(orderId)
+        && isValidOrder(incoming(), orderId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/clients/$(incoming().clientId))
+        && get(/databases/$(database)/documents/clients/$(incoming().clientId)).data.ownerId == request.auth.uid;
+      allow update: if isVerified() && isValidId(orderId)
+        && isValidOrder(incoming(), orderId)
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().clientId == existing().clientId
+          || (
+            exists(/databases/$(database)/documents/clients/$(incoming().clientId))
+            && get(/databases/$(database)/documents/clients/$(incoming().clientId)).data.ownerId == request.auth.uid
+          )
+        )
+        && (
+          (
+            !(existing().status in ['completed', 'cancelled'])
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'orderNumber', 'clientId', 'clientName', 'clientWhatsapp',
+              'status', 'paymentStatus', 'primaryCategory', 'itemsSummary',
+              'itemCount', 'totalUnits', 'totalFactoryCost', 'totalAmount',
+              'exchangeRate', 'priceCurrency',
+              'orderDate', 'shippingNotes', 'notes', 'updatedAt'
+            ])
+          )
+          ||
+          (
+            existing().status in ['completed', 'cancelled']
+            && incoming().status == existing().status
+            && incoming().diff(existing()).affectedKeys().hasOnly(['paymentStatus', 'shippingNotes', 'notes', 'exchangeRate', 'updatedAt'])
+          )
+          ||
+          (
+            (!('priceCurrency' in existing()) || existing().priceCurrency == 'CNY')
+            && incoming().priceCurrency == 'RMB_USD'
+            && incoming().status == existing().status
+            && incoming().diff(existing()).affectedKeys().hasOnly(['totalFactoryCost', 'totalAmount', 'exchangeRate', 'priceCurrency', 'updatedAt'])
+          )
+        );
+      allow delete: if isVerified() && isValidId(orderId) && existing().ownerId == request.auth.uid;
+
+      match /items/{itemId} {
+        allow get: if isSignedIn() && isValidId(orderId) && isValidId(itemId)
+          && existing().ownerId == request.auth.uid
+          && get(/databases/$(database)/documents/orders/$(orderId)).data.ownerId == request.auth.uid;
+        allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+        allow create: if isVerified() && isValidId(orderId) && isValidId(itemId)
+          && isValidOrderItem(incoming(), orderId, itemId)
+          && incoming().createdAt == request.time
+          && getAfter(/databases/$(database)/documents/orders/$(orderId)).data.ownerId == request.auth.uid
+          && exists(/databases/$(database)/documents/products/$(incoming().productId))
+          && get(/databases/$(database)/documents/products/$(incoming().productId)).data.ownerId == request.auth.uid;
+        allow update: if isVerified() && isValidId(orderId) && isValidId(itemId)
+          && isValidOrderItem(incoming(), orderId, itemId)
+          && existing().ownerId == request.auth.uid
+          && incoming().ownerId == existing().ownerId
+          && incoming().id == existing().id
+          && incoming().orderId == existing().orderId
+          && incoming().productId == existing().productId
+          && incoming().createdAt == existing().createdAt
+          && (!('priceCurrency' in existing()) || existing().priceCurrency == 'CNY')
+          && incoming().priceCurrency == 'RMB_USD'
+          && get(/databases/$(database)/documents/orders/$(orderId)).data.ownerId == request.auth.uid
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'unitFactoryPrice', 'unitSellingPrice', 'lineCost', 'lineTotal', 'priceCurrency'
+          ]);
+        allow delete: if isVerified() && isValidId(orderId) && isValidId(itemId)
+          && existing().ownerId == request.auth.uid
+          && get(/databases/$(database)/documents/orders/$(orderId)).data.ownerId == request.auth.uid;
+      }
+    }
+  }
+}

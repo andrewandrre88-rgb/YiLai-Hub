@@ -1,0 +1,6 @@
+{
+  "name": "Yi Lai Hub",
+  "description": "B2B sales operations hub for dispensing products — trigger sprayers, lotion pumps, and fine mist sprayers. Manage factory pricing, client WhatsApp contacts, and order history.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

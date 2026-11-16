@@ -1,0 +1,539 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Workspace profile for an authenticated Yi Lai Hub seller.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "companyName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "defaultCurrency": {
+          "type": "string",
+          "enum": ["USD", "CNY", "EUR"]
+        },
+        "usdToRmbRate": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "displayName", "companyName", "defaultCurrency", "createdAt", "updatedAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Dispensing product catalog item with factory cost, selling price, neck size, and MOQ.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "sku": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-/\\. ]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140
+        },
+        "category": {
+          "type": "string",
+          "enum": ["trigger_sprayer", "lotion_pump", "fine_mist_sprayer", "foam_pump", "cap_closure"]
+        },
+        "neckSize": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "dosage": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "colorFinish": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "factoryPrice": {
+          "type": "number"
+        },
+        "sellingPrice": {
+          "type": "number"
+        },
+        "priceCurrency": {
+          "type": "string",
+          "enum": ["CNY", "RMB_USD"]
+        },
+        "moq": {
+          "type": "integer"
+        },
+        "cartonQty": {
+          "type": "integer"
+        },
+        "imageKey": {
+          "type": "string",
+          "enum": ["trigger_sprayer", "lotion_pump", "fine_mist_sprayer", "foam_pump"]
+        },
+        "imageUrl": {
+          "type": "string",
+          "maxLength": 300000
+        },
+        "boxLengthCm": {
+          "type": "number"
+        },
+        "boxWidthCm": {
+          "type": "number"
+        },
+        "boxHeightCm": {
+          "type": "number"
+        },
+        "grossWeightKg": {
+          "type": "number"
+        },
+        "netWeightKg": {
+          "type": "number"
+        },
+        "factoryId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "factoryName": {
+          "type": "string",
+          "maxLength": 140
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "sku",
+        "name",
+        "category",
+        "neckSize",
+        "dosage",
+        "colorFinish",
+        "factoryPrice",
+        "sellingPrice",
+        "moq",
+        "cartonQty",
+        "imageKey",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "B2B buyer profile with WhatsApp contact number and regional details.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "companyName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140
+        },
+        "contactName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "whatsappNumber": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 32
+        },
+        "country": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "companyName",
+        "contactName",
+        "whatsappNumber",
+        "country",
+        "email",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Sales order header linking a client, order totals, factory cost snapshot, and fulfillment status.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "orderNumber": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "pattern": "^[a-zA-Z0-9_\\- ]+$"
+        },
+        "clientId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "clientName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140
+        },
+        "clientWhatsapp": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "status": {
+          "type": "string",
+          "enum": ["quoted", "confirmed", "in_production", "shipped", "completed", "cancelled"]
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["unpaid", "deposit_paid", "paid"]
+        },
+        "primaryCategory": {
+          "type": "string",
+          "enum": ["trigger_sprayer", "lotion_pump", "fine_mist_sprayer", "foam_pump", "cap_closure"]
+        },
+        "itemsSummary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "itemCount": {
+          "type": "integer"
+        },
+        "totalUnits": {
+          "type": "integer"
+        },
+        "totalFactoryCost": {
+          "type": "number"
+        },
+        "totalAmount": {
+          "type": "number"
+        },
+        "exchangeRate": {
+          "type": "number"
+        },
+        "priceCurrency": {
+          "type": "string",
+          "enum": ["CNY", "RMB_USD"]
+        },
+        "orderDate": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 32
+        },
+        "shippingNotes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "orderNumber",
+        "clientId",
+        "clientName",
+        "clientWhatsapp",
+        "status",
+        "paymentStatus",
+        "primaryCategory",
+        "itemsSummary",
+        "itemCount",
+        "totalUnits",
+        "totalFactoryCost",
+        "totalAmount",
+        "orderDate",
+        "shippingNotes",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "OrderItem": {
+      "title": "OrderItem",
+      "description": "Line item inside an order with factory cost and selling price snapshot.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "orderId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "productId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "productSku": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "productName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140
+        },
+        "category": {
+          "type": "string",
+          "enum": ["trigger_sprayer", "lotion_pump", "fine_mist_sprayer", "foam_pump", "cap_closure"]
+        },
+        "neckSize": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "quantity": {
+          "type": "integer"
+        },
+        "unitFactoryPrice": {
+          "type": "number"
+        },
+        "unitSellingPrice": {
+          "type": "number"
+        },
+        "lineCost": {
+          "type": "number"
+        },
+        "lineTotal": {
+          "type": "number"
+        },
+        "priceCurrency": {
+          "type": "string",
+          "enum": ["CNY", "RMB_USD"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "orderId",
+        "productId",
+        "productSku",
+        "productName",
+        "category",
+        "neckSize",
+        "quantity",
+        "unitFactoryPrice",
+        "unitSellingPrice",
+        "lineCost",
+        "lineTotal",
+        "createdAt"
+      ]
+    },
+    "Factory": {
+      "title": "Factory",
+      "description": "Manufacturing supplier profile for dispensing components.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "factoryName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140
+        },
+        "contactPerson": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "contactPhone": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "location": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "specialty": {
+          "type": "string",
+          "maxLength": 140
+        },
+        "leadTimeDays": {
+          "type": "integer"
+        },
+        "paymentTerms": {
+          "type": "string",
+          "maxLength": 140
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "factoryName",
+        "contactPerson",
+        "contactPhone",
+        "location",
+        "specialty",
+        "leadTimeDays",
+        "paymentTerms",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Authenticated seller profile and workspace preferences."
+    },
+    "/products/{productId}": {
+      "schema": {
+        "$ref": "#/entities/Product"
+      },
+      "description": "Dispensing products catalog owned by the seller."
+    },
+    "/clients/{clientId}": {
+      "schema": {
+        "$ref": "#/entities/Client"
+      },
+      "description": "B2B clients and WhatsApp contacts owned by the seller."
+    },
+    "/orders/{orderId}": {
+      "schema": {
+        "$ref": "#/entities/Order"
+      },
+      "description": "Order headers owned by the seller."
+    },
+    "/orders/{orderId}/items/{itemId}": {
+      "schema": {
+        "$ref": "#/entities/OrderItem"
+      },
+      "description": "Order line items subcollection belonging to a parent order."
+    },
+    "/factories/{factoryId}": {
+      "schema": {
+        "$ref": "#/entities/Factory"
+      },
+      "description": "Dispensing product manufacturing suppliers owned by the seller."
+    }
+  }
+}
