@@ -103,10 +103,11 @@ export const DOCUMENT_THEMES: Record<ThemeId, DocumentTheme> = {
 export interface TradeLineItem {
   id: string;
   productId?: string;
-  sku: string;
+  sku?: string;
   description: string;
   specifications: string;
   hsCode: string;
+  quantity?: number;
   cartons: number;
   unitsPerCarton: number;
   unitLabel: string;
@@ -117,6 +118,15 @@ export interface TradeLineItem {
   widthCm: number;
   heightCm: number;
   imageUrl?: string;
+}
+
+export function getLineItemQuantity(item: TradeLineItem): number {
+  if (typeof item.quantity === 'number' && Number.isFinite(item.quantity)) {
+    return Math.max(0, item.quantity);
+  }
+  const cartons = Math.max(0, Number(item.cartons) || 0);
+  const unitsPerCtn = Math.max(0, Number(item.unitsPerCarton) || 0);
+  return cartons * unitsPerCtn;
 }
 
 export interface TradeDocumentState {
@@ -344,8 +354,7 @@ export function calculateDocumentTotals(
 
   for (const item of doc.items) {
     const cartons = Math.max(0, Number(item.cartons) || 0);
-    const unitsPerCtn = Math.max(0, Number(item.unitsPerCarton) || 0);
-    const qty = cartons * unitsPerCtn;
+    const qty = getLineItemQuantity(item);
     const unitPrice = Math.max(0, Number(item.unitPrice) || 0);
     const lineCbmPerCtn =
       item.lengthCm > 0 && item.widthCm > 0 && item.heightCm > 0

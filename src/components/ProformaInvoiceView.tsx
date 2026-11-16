@@ -50,6 +50,7 @@ import {
   formatTradeCurrency,
   formatTradeUnitPrice,
   generateDocNumber,
+  getLineItemQuantity,
   renderPresetStampDataUrl,
 } from '../lib/proformaTypes';
 import {
@@ -276,10 +277,10 @@ export function ProformaInvoiceView({
   const addCustomItem = () => {
     const newItem: TradeLineItem = {
       id: `item_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      sku: '',
       description: 'New Trade Line Item',
       specifications: 'Standard specification',
       hsCode: '8424.89.90',
+      quantity: 5000,
       cartons: 10,
       unitsPerCarton: 500,
       unitLabel: 'pcs',
@@ -308,15 +309,17 @@ export function ProformaInvoiceView({
       .filter(Boolean)
       .join(' · ');
 
+    const ctnCount = Math.max(1, Math.round((prod.moq || 1000) / Math.max(1, prod.cartonQty || 500)));
+    const unitsPerCtn = Math.max(1, prod.cartonQty || 500);
     const newItem: TradeLineItem = {
       id: `cat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       productId: prod.id,
-      sku: prod.sku,
       description: prod.name,
       specifications: specs || 'Standard dispensing specification',
       hsCode: prod.category === 'lotion_pump' || prod.category === 'foam_pump' ? '8413.20.00' : '8424.89.90',
-      cartons: Math.max(1, Math.round((prod.moq || 1000) / Math.max(1, prod.cartonQty || 500))),
-      unitsPerCarton: Math.max(1, prod.cartonQty || 500),
+      quantity: ctnCount * unitsPerCtn,
+      cartons: ctnCount,
+      unitsPerCarton: unitsPerCtn,
       unitLabel: 'pcs',
       unitPrice: estimatedUsd,
       netWeightPerCartonKg: Number(prod.netWeightKg) || 10.2,
@@ -388,13 +391,13 @@ export function ProformaInvoiceView({
               return {
                 id: `oi_${oi.id}_${Date.now()}`,
                 productId: oi.productId,
-                sku: oi.productSku || catalogProd?.sku || '',
                 description: oi.productName,
                 specifications: specs,
                 hsCode:
                   oi.category === 'lotion_pump' || oi.category === 'foam_pump'
                     ? '8413.20.00'
                     : '8424.89.90',
+                quantity: Number(oi.quantity) || cartons * ctnQty,
                 cartons,
                 unitsPerCarton: ctnQty,
                 unitLabel: 'pcs',
@@ -412,10 +415,10 @@ export function ProformaInvoiceView({
           : [
               {
                 id: `ord_sum_${Date.now()}`,
-                sku: order.orderNumber,
                 description: order.itemsSummary || 'Dispensing Packaging Order',
                 specifications: order.shippingNotes || 'As per confirmed sample',
                 hsCode: '8424.89.90',
+                quantity: order.totalUnits || 500,
                 cartons: Math.max(1, Math.ceil((order.totalUnits || 500) / 500)),
                 unitsPerCarton: 500,
                 unitLabel: 'pcs',
@@ -1014,15 +1017,15 @@ export function ProformaInvoiceView({
             {/* TAB 2: LINE ITEMS */}
             {activeTab === 'items' && (
               <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
-                  <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+                <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-2.5 pb-2.5 border-b border-slate-100">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 min-w-0 sm:min-w-[230px]">
                     <select
                       value={selectedCatalogProductId}
                       onChange={(e) => {
                         setSelectedCatalogProductId(e.target.value);
                         if (e.target.value) addCatalogProduct(e.target.value);
                       }}
-                      className="flex-1 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700"
+                      className="w-full sm:flex-1 min-w-0 truncate px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-slate-400"
                     >
                       <option value="">+ Add from Product Catalog...</option>
                       {products.map((p) => (
@@ -1034,27 +1037,27 @@ export function ProformaInvoiceView({
                     <button
                       type="button"
                       onClick={addCustomItem}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 shrink-0"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 shrink-0 w-full sm:w-auto transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       Custom Row
                     </button>
                   </div>
 
-                  <label className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
+                  <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer shrink-0 self-start sm:self-center py-0.5 select-none">
                     <input
                       type="checkbox"
                       checked={doc.showProductImages}
                       onChange={(e) => updateDoc('showProductImages', e.target.checked)}
-                      className="rounded border-slate-300"
+                      className="h-3.5 w-3.5 rounded border-slate-300 shrink-0"
                     />
-                    Show Product Photos
+                    <span>Show Product Photos</span>
                   </label>
                 </div>
 
                 <div className="space-y-3">
                   {doc.items.map((item, idx) => {
-                    const lineQty = item.cartons * item.unitsPerCarton;
+                    const lineQty = getLineItemQuantity(item);
                     const lineTotal = lineQty * item.unitPrice;
                     return (
                       <div
@@ -1126,11 +1129,19 @@ export function ProformaInvoiceView({
                             />
                           </div>
                           <div>
-                            <label className={labelClass}>SKU / Item Code</label>
+                            <label className={labelClass}>Quantity</label>
                             <input
-                              type="text"
-                              value={item.sku}
-                              onChange={(e) => updateItem(item.id, { sku: e.target.value })}
+                              type="number"
+                              min={0}
+                              value={lineQty}
+                              onChange={(e) => {
+                                const nextQty = Math.max(0, Number(e.target.value) || 0);
+                                const patch: Partial<TradeLineItem> = { quantity: nextQty };
+                                if (item.unitsPerCarton > 0 && nextQty % item.unitsPerCarton === 0) {
+                                  patch.cartons = nextQty / item.unitsPerCarton;
+                                }
+                                updateItem(item.id, patch);
+                              }}
                               className={`${inputClass} font-['JetBrains_Mono',monospace]`}
                             />
                           </div>
@@ -1164,9 +1175,13 @@ export function ProformaInvoiceView({
                               type="number"
                               min={0}
                               value={item.cartons}
-                              onChange={(e) =>
-                                updateItem(item.id, { cartons: Math.max(0, Number(e.target.value) || 0) })
-                              }
+                              onChange={(e) => {
+                                const nextCartons = Math.max(0, Number(e.target.value) || 0);
+                                updateItem(item.id, {
+                                  cartons: nextCartons,
+                                  quantity: nextCartons * item.unitsPerCarton,
+                                });
+                              }}
                               className={`${inputClass} font-['JetBrains_Mono',monospace]`}
                             />
                           </div>
@@ -1176,11 +1191,13 @@ export function ProformaInvoiceView({
                               type="number"
                               min={0}
                               value={item.unitsPerCarton}
-                              onChange={(e) =>
+                              onChange={(e) => {
+                                const nextUnits = Math.max(0, Number(e.target.value) || 0);
                                 updateItem(item.id, {
-                                  unitsPerCarton: Math.max(0, Number(e.target.value) || 0),
-                                })
-                              }
+                                  unitsPerCarton: nextUnits,
+                                  quantity: item.cartons * nextUnits,
+                                });
+                              }}
                               className={`${inputClass} font-['JetBrains_Mono',monospace]`}
                             />
                           </div>
@@ -2380,7 +2397,7 @@ export function ProformaInvoiceView({
                           </thead>
                           <tbody className="divide-y divide-slate-200">
                             {doc.items.map((item, idx) => {
-                              const qty = item.cartons * item.unitsPerCarton;
+                              const qty = getLineItemQuantity(item);
                               const lineTotal = qty * item.unitPrice;
                               const cbmPerCtn =
                                 item.lengthCm > 0 && item.widthCm > 0 && item.heightCm > 0
@@ -2426,11 +2443,6 @@ export function ProformaInvoiceView({
                                         {item.specifications && (
                                           <div className="text-[11px] text-slate-500 mt-0.5">
                                             {item.specifications}
-                                          </div>
-                                        )}
-                                        {item.sku && (
-                                          <div className="text-[10px] font-['JetBrains_Mono',monospace] text-slate-400 mt-0.5">
-                                            SKU: {item.sku}
                                           </div>
                                         )}
                                       </div>

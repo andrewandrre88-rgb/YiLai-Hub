@@ -6,6 +6,7 @@ import {
   amountToWords,
   formatTradeCurrency,
   formatTradeUnitPrice,
+  getLineItemQuantity,
 } from '../../lib/proformaTypes';
 
 interface ProformaExcelSimulatorProps {
@@ -172,9 +173,9 @@ export default function ProformaExcelSimulator({ doc, totals }: ProformaExcelSim
     const firstItemRow = 10;
     doc.items.forEach((item, idx) => {
       const r = firstItemRow + idx;
-      const qty = item.cartons * item.unitsPerCarton;
+      const qty = getLineItemQuantity(item);
       const zebra = idx % 2 === 1 ? '#F8FAFC' : '#FFFFFF';
-      const qtyFormula = `=D${r}*E${r}`;
+      const qtyFormula = qty === item.cartons * item.unitsPerCarton ? `=D${r}*E${r}` : String(qty);
 
       if (isPacking) {
         const cbmPerCtn =
@@ -188,7 +189,7 @@ export default function ProformaExcelSimulator({ doc, totals }: ProformaExcelSim
           rowNum: r,
           cells: [
             { value: String(idx + 1), align: 'center', mono: true, bg: zebra },
-            { value: `${item.description}${item.sku ? ` (${item.sku})` : ''}`, bg: zebra },
+            { value: item.description, bg: zebra },
             { value: item.hsCode || '-', mono: true, bg: zebra },
             { value: item.cartons.toLocaleString('en-US'), align: 'right', mono: true, bg: zebra },
             { value: item.unitsPerCarton.toLocaleString('en-US'), align: 'right', mono: true, bg: zebra },
@@ -210,7 +211,7 @@ export default function ProformaExcelSimulator({ doc, totals }: ProformaExcelSim
           rowNum: r,
           cells: [
             { value: String(idx + 1), align: 'center', mono: true, bg: zebra },
-            { value: `${item.description}${item.sku ? ` (${item.sku})` : ''}`, bg: zebra },
+            { value: item.description, bg: zebra },
             { value: item.hsCode || '-', mono: true, bg: zebra },
             { value: item.cartons.toLocaleString('en-US'), align: 'right', mono: true, bg: zebra },
             { value: item.unitsPerCarton.toLocaleString('en-US'), align: 'right', mono: true, bg: zebra },

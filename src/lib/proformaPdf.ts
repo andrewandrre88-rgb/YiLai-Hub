@@ -9,6 +9,7 @@ import {
   amountToWords,
   formatTradeCurrency,
   formatTradeUnitPrice,
+  getLineItemQuantity,
   renderPresetStampDataUrl,
 } from './proformaTypes';
 
@@ -413,11 +414,10 @@ export async function downloadTradeDocumentPdf(
       ];
 
   const tableBody = docState.items.map((item, idx) => {
-    const qty = item.cartons * item.unitsPerCarton;
+    const qty = getLineItemQuantity(item);
     const descParts = [
       safeAscii(item.description || 'Product'),
       item.specifications ? safeAscii(item.specifications) : '',
-      item.sku ? `SKU: ${safeAscii(item.sku)}` : '',
     ].filter(Boolean);
     const descText = descParts.join('\n');
 

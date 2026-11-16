@@ -5,6 +5,7 @@ import {
   TRADE_CURRENCIES,
   TradeDocumentState,
   amountToWords,
+  getLineItemQuantity,
   renderPresetStampDataUrl,
 } from './proformaTypes';
 
@@ -313,16 +314,16 @@ export async function exportTradeDocumentExcel(
     const r = firstItemRow + idx;
     const row = ws.getRow(r);
     row.height = includeImages ? 36 : 28;
-    const descFull = [
-      item.description || 'Product',
-      item.sku ? `SKU: ${item.sku}` : '',
-      item.specifications,
-    ]
+    const descFull = [item.description || 'Product', item.specifications]
       .filter(Boolean)
       .join(' | ');
 
     const qtyFormula = `${ctnColLetter}${r}*${unitsPerCtnColLetter}${r}`;
-    const qtyValue = item.cartons * item.unitsPerCarton;
+    const qtyValue = getLineItemQuantity(item);
+    const qtyCellValue: ExcelJS.CellValue =
+      qtyValue === item.cartons * item.unitsPerCarton
+        ? { formula: qtyFormula, result: qtyValue }
+        : qtyValue;
 
     if (isPacking) {
       const cbmPerCtn =
@@ -340,7 +341,7 @@ export async function exportTradeDocumentExcel(
         item.hsCode || '-',
         item.cartons,
         item.unitsPerCarton,
-        { formula: qtyFormula, result: qtyValue },
+        qtyCellValue,
         Number(lineNet.toFixed(2)),
         Number(lineGross.toFixed(2)),
         lineCbm,
@@ -360,7 +361,7 @@ export async function exportTradeDocumentExcel(
         item.hsCode || '-',
         item.cartons,
         item.unitsPerCarton,
-        { formula: qtyFormula, result: qtyValue },
+        qtyCellValue,
         item.unitPrice,
         { formula: lineTotalFormula, result: lineTotalVal },
       ];
